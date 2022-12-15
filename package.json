@@ -1,0 +1,12 @@
+{
+  "name": "com.bit34games.packagemanager",
+  "displayName": "Bit34 Package Manager",
+  "version": "0.1.0",
+  "description": "Unity does not support packages with git dependencies. This tool is a temporary solution, will be removed when Unity implementes neccessary features.",
+  "unity": "2018.4",
+  "author": {
+    "name": "Bit34 Games",
+    "url": "https://github.com/bit34"
+  },
+  "type": "tool"
+}
