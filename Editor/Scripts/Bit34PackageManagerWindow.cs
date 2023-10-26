@@ -1,69 +1,35 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using Newtonsoft.Json;  //   "com.unity.nuget.newtonsoft-json": "2.0.0",
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEditor;
+using Com.Bit34games.PackageManager.Models;
+using Com.Bit34games.PackageManager.Utilities;
+using Com.Bit34games.PackageManager.VOs;
 
 namespace Com.Bit34games.Unity.Editor
 {
-    [Serializable]
-    class PackageJson
-    {
-        public string                     name         = "";
-        public string                     displayName  = "";
-        public string                     version      = "";
-        public string                     description  = "";
-        public Dictionary<string, string> dependencies = null;
-    }
-
-    class PackageItem
-    {
-        public readonly string name;
-        public readonly string displayName;
-        public readonly string version;
-        public readonly string description;
-
-        public PackageItem(string name,
-                           string displayName,
-                           string version,
-                           string description)
-        {
-            this.name        = name;
-            this.displayName = displayName;
-            this.version     = version;
-            this.description = description;
-        }
-    }
 
     public class Bit34PackageManagerWindow : EditorWindow
     {
         //  CONSTANTS
-        private const float  LOAD_PANEL_HEIGHT          = 100;
-        private const float  LIST_PANEL_WIDTH           = 230;
-        private const float  DETAIL_PANEL_MIN_WIDTH     = 100;
-        private const string PACKAGE_CACHE_FOLDER       = "Assets/Bit34/Packages/";
-        private const string PACKAGE_REVERSE_URL_PREFIX = "com.bit34games.";
-        private const string PACKAGE_NAME_PREFIX        = "bit34-";
-        private const string PACKAGE_NAME_POSTFIX       = "-upm";
-        private const string GITHUB_PROFILE_URL         = "https://github.com/bit34/";
-        private const string GIT_EXTENSION              = ".git";
-        private const string VERSION_BRANCH_PREFIX      = "v";
+        private const float  TOOLBAR_PANEL_HEIGHT       = 20;
+        private const float  LIST_PANEL_WIDTH           = 220;
+
 
         //  MEMBERS
-        //      Load panel
-        private Rect              _loadPanelRect;
-        private string            _packageName    = "";
-        private string            _packageVersion = "";
-        //      List panel
-        private List<PackageItem> _list;
-        private int               _listSelection;
-        private Rect              _listPanelRect;
-        private Vector2           _listPanelScroll;
-        private GUIStyle          _listItemStyle;
-        //      Detail panel
-        private Rect              _detailPanelRect;
+        private RepositoriesModel    _repositoriesModel;
+        private RepositoryOperations _repositoryOperations;
+        //      Tool bar
+        private Rect                _toolBarRect;
+        //      Package list
+        private Rect                _packageListRect;
+        private int                 _packageListSelection;
+        private GUIStyle            _packageListItemStyle;
+        private Texture2D           _notloadedIcon;
+        private Texture2D           _loadedIcon;
+        private Texture2D           _outdatedIcon;
+        private Vector2             _packageListScrollPosition;
+        //      Package detail
+        private Rect                _packageDetailRect;
+
 
         //  METHODS
         [MenuItem("Bit34/Package Manager")]
@@ -76,201 +42,128 @@ namespace Com.Bit34games.Unity.Editor
 
         private void OnEnable()
         {
-            _list = new List<PackageItem>();
-            _listItemStyle = new GUIStyle();
-            _listItemStyle.normal.textColor = Color.black;
-            _listSelection = -1;
+            _repositoriesModel    = new RepositoriesModel();
+            _repositoryOperations = new RepositoryOperations(_repositoriesModel);
 
-            ReadLoadedPackages();
+            _packageListItemStyle = new GUIStyle();
+            _packageListItemStyle.normal.textColor = Color.black;
+            _packageListSelection = -1;
+            _notloadedIcon = EditorGUIUtility.FindTexture("d_tranp") ;
+            _loadedIcon    = EditorGUIUtility.FindTexture("console.infoicon") ;
+            _outdatedIcon  = EditorGUIUtility.FindTexture("console.warnicon") ;
         }
 
         private void OnGUI()
         {
-            DrawLoadPanel();
+            _toolBarRect       = new Rect(0,                0,                    position.width,                  TOOLBAR_PANEL_HEIGHT);
+            _packageListRect   = new Rect(0,                TOOLBAR_PANEL_HEIGHT, LIST_PANEL_WIDTH,                position.height-TOOLBAR_PANEL_HEIGHT);
+            _packageDetailRect = new Rect(LIST_PANEL_WIDTH, TOOLBAR_PANEL_HEIGHT, position.width-LIST_PANEL_WIDTH, position.height-TOOLBAR_PANEL_HEIGHT);
 
-            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.BeginVertical();
+                DrawToolBar();
 
-            DrawListPanel();
-            DrawDetailPanel();
-            EditorGUILayout.EndHorizontal();
+                EditorGUILayout.BeginHorizontal();
+                    DrawPackageList();
+                    DrawPackageDetail();
+                EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndVertical();
         }
 
-        private void DrawLoadPanel()
+        private void DrawToolBar()
         {
-            _loadPanelRect = new Rect(0, 0, position.width, LOAD_PANEL_HEIGHT);
-            GUILayout.BeginArea(_loadPanelRect);
-
-            GUILayout.Label("Load a package", EditorStyles.boldLabel);
-
-            _packageName    = EditorGUILayout.TextField("Name", _packageName).ToLower();
-            _packageVersion = EditorGUILayout.TextField("Version", _packageVersion);
-
-            if (GUILayout.Button("Install"))
+            GUILayout.BeginArea(_toolBarRect);
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Reload", GUILayout.Width(LIST_PANEL_WIDTH)))
             {
-                if (Directory.Exists(PACKAGE_CACHE_FOLDER) == false)
-                {
-                    Process.Start("mkdir", " " + PACKAGE_CACHE_FOLDER).WaitForExit();
-                    AssetDatabase.Refresh();
-                }
-
-                LoadPackage(_packageName, _packageVersion);
+                ReloadRepositories();
+                _repositoryOperations.LoadDependencies();
             }
+
+            EditorGUILayout.EndHorizontal();
+
             GUILayout.EndArea();
         }
 
-        private void DrawListPanel()
+        private void DrawPackageList()
         {
-            _listPanelRect = new Rect(0, LOAD_PANEL_HEIGHT, LIST_PANEL_WIDTH, position.height);
-            GUILayout.BeginArea(_listPanelRect);
+            GUILayout.BeginArea(_packageListRect, GUI.skin.textArea);
 
-            _listPanelScroll = GUILayout.BeginScrollView(_listPanelScroll);
-            for (int i = 0; i < _list.Count; i++)
+            _packageListScrollPosition = GUILayout.BeginScrollView(_packageListScrollPosition, 
+                                                                   GUILayout.Width(_packageListRect.width), 
+                                                                   GUILayout.Height(_packageListRect.height));
+
+            for (int i = 0; i < _repositoriesModel.PackageCount; i++)
             {
-                PackageItem item = _list[i];
-                if(DrawListItem(item))
+                RepositoryPackageVO package = _repositoriesModel.GetPackage(i);
+
+                EditorGUILayout.BeginHorizontal();
+                if(DrawPackageListItem(package))
                 {
-                    _listSelection = i;
+                    _packageListSelection = i;
                 }
+                EditorGUILayout.EndHorizontal();
             }
             GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
-        private bool DrawListItem(PackageItem listItem)
+        private bool DrawPackageListItem(RepositoryPackageVO package)
         {
-            return GUILayout.Button(new GUIContent(listItem.name + " @ " + listItem.version));
-        }
-
-        private void DrawDetailPanel()
-        {
-            _detailPanelRect = new Rect(LIST_PANEL_WIDTH, LOAD_PANEL_HEIGHT, Mathf.Max(DETAIL_PANEL_MIN_WIDTH, position.width - LIST_PANEL_WIDTH), position.height);
-            GUILayout.BeginArea(_detailPanelRect);
-
-            if (_listSelection != -1)
+            if (_repositoriesModel.HasDependency(package.name))
             {
-                PackageItem item = _list[_listSelection];
-
-                GUILayout.Label(item.displayName, EditorStyles.boldLabel);
-                GUILayout.Label(item.description, EditorStyles.label);
-            }
-
-            GUILayout.EndArea();
-        }
-
-        private void ReadLoadedPackages()
-        {
-            if (Directory.Exists(PACKAGE_CACHE_FOLDER))
-            {
-                string[] packageFolderPaths = Directory.GetDirectories(PACKAGE_CACHE_FOLDER);
-
-                for (int i = 0; i < packageFolderPaths.Length; i++)
-                {
-                    string      packageJsonPath    = packageFolderPaths[i] + Path.DirectorySeparatorChar + "package.json";
-                    string      packageJsonContent = File.ReadAllText(packageJsonPath);
-                    PackageJson packageJson        = JsonConvert.DeserializeObject<PackageJson>(packageJsonContent);
-
-                    PackageItem listItem = new PackageItem(packageJson.name,
-                                                        packageJson.displayName,
-                                                        packageJson.version,
-                                                        packageJson.description);
-                    _list.Add(listItem);
-                }
-            }
-        }
-
-        private void LoadPackage(string packageName, string packageVersion, int depth = 0)
-        {
-            string tabs = new string('-', depth) + ">";
-//            UnityEngine.Debug.Log(tabs + "Loading package : " + packageName +"@"+packageVersion);
-
-            string packageGitUrl     = GITHUB_PROFILE_URL + PACKAGE_NAME_PREFIX + packageName + PACKAGE_NAME_POSTFIX + GIT_EXTENSION;
-            string packageFolderName = PACKAGE_REVERSE_URL_PREFIX + packageName + "@" + packageVersion;
-
-            if (Directory.Exists(PACKAGE_CACHE_FOLDER + packageFolderName) == false)
-            {
-                //  Clone repository
-                Process.Start("git", " clone -q " + packageGitUrl + " " + PACKAGE_CACHE_FOLDER + packageFolderName).WaitForExit();
+                GUILayout.Box(_loadedIcon, GUILayout.Width(16), GUILayout.Height(16));
             }
             else
             {
-                //  Fetch latest files
-                Process.Start("git", " -C " + PACKAGE_CACHE_FOLDER + packageFolderName + " fetch -q").WaitForExit();
+                GUILayout.Box(_notloadedIcon, GUILayout.Width(16), GUILayout.Height(16));
             }
-            AssetDatabase.Refresh();
+            
+            return GUILayout.Button(new GUIContent(package.name));
+        }
 
-            //  Checkout version branch
-            Process.Start("git", " -C " + PACKAGE_CACHE_FOLDER + packageFolderName + " checkout -q -b " + VERSION_BRANCH_PREFIX + _packageVersion).WaitForExit();
-            AssetDatabase.Refresh();
+        private void DrawPackageDetail()
+        {
+            GUILayout.BeginArea(_packageDetailRect);
 
-            //  Parse package.json file
-            string      packageJsonPath    = PACKAGE_CACHE_FOLDER + packageFolderName + Path.DirectorySeparatorChar + "package.json";
-            string      packageJsonContent = File.ReadAllText(packageJsonPath);
-            PackageJson packageJson        = JsonConvert.DeserializeObject<PackageJson>(packageJsonContent);
-
-            PackageItem listItem = new PackageItem(packageJson.name,
-                                                   packageJson.displayName,
-                                                   packageJson.version,
-                                                   packageJson.description);
-            _list.Add(listItem);
-
-            //  Handle dependencies
-            if( packageJson.dependencies !=  null)
+            if (_packageListSelection != -1)
             {
-                foreach (var key in packageJson.dependencies.Keys)
-                {
-                    string value = packageJson.dependencies[key];
+                RepositoryPackageVO package = _repositoriesModel.GetPackage(_packageListSelection);
 
-                    string dependencyReverseUrl = key;
-                    string dependencyName       = dependencyReverseUrl.Substring(dependencyReverseUrl.LastIndexOf('.')+1);
-                    string dependencyVersion    = value.Substring(value.IndexOf('#')+2);
-                    LoadPackage(dependencyName, dependencyVersion, depth+1);
+                if (_repositoriesModel.HasDependency(package.name))
+                {
+                    GUILayout.Label(package.name + "[Installed]", EditorStyles.boldLabel);
+                    GUILayout.Label("Version : " + _repositoriesModel.GetDependencyVersion(package.name), EditorStyles.label);
+                }
+                else
+                {
+                    GUILayout.Label(package.name, EditorStyles.boldLabel);
+                }
+
+                GUILayout.Label("All versions :", EditorStyles.label);
+                for (int i = 0; i < package.VersionCount; i++)
+                {
+                    SemanticVersionVO packageVersion = package.GetVersion(i);
+                    GUILayout.Label(" - "+ packageVersion.ToString(), EditorStyles.label);
                 }
             }
+            GUILayout.EndArea();
         }
+
+        private void ReloadRepositories()
+        {
+//            ReloadRepositoriesProgress(0);
+
+            _repositoriesModel.Clear();
+            _repositoryOperations.LoadRepositories(ReloadRepositoriesProgress);
+
+//            EditorUtility.ClearProgressBar();
+        }
+
+        private void ReloadRepositoriesProgress(float progress)
+        {
+//            EditorUtility.DisplayProgressBar("Reloading repositories", "Just a sec...", progress);
+        }
+
     }
+
 }
-/*
-//Console.WriteLine(CommandOutput("git status"));
-
-    public static string CommandOutput(string command,
-                                       string workingDirectory = null)
-    {
-        try
-        {
-            ProcessStartInfo procStartInfo = new ProcessStartInfo("cmd", "/c " + command);
-
-            procStartInfo.RedirectStandardError = procStartInfo.RedirectStandardInput = procStartInfo.RedirectStandardOutput = true;
-            procStartInfo.UseShellExecute = false;
-            procStartInfo.CreateNoWindow = true;
-            if (null != workingDirectory)
-            {
-                procStartInfo.WorkingDirectory = workingDirectory;
-            }
-
-            Process proc = new Process();
-            proc.StartInfo = procStartInfo;
-            proc.Start();
-
-            StringBuilder sb = new StringBuilder();
-            proc.OutputDataReceived += delegate (object sender, DataReceivedEventArgs e)
-            {
-                sb.AppendLine(e.Data);
-            };
-            proc.ErrorDataReceived += delegate (object sender, DataReceivedEventArgs e)
-            {
-                sb.AppendLine(e.Data);
-            };
-
-            proc.BeginOutputReadLine();
-            proc.BeginErrorReadLine();
-            proc.WaitForExit();
-            return sb.ToString();
-        }
-        catch (Exception objException)
-        {
-            return $"Error in command: {command}, {objException.Message}";
-        }
-    }
-Share
-
-*/
