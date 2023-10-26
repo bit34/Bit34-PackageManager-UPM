@@ -136,7 +136,7 @@ namespace Com.Bit34games.PackageManager.Utilities
                         if (_repositoriesModel.HasDependency(dependencyName) == false &&
                             unresolvedDependencies.ContainsKey(dependencyName) == false)
                         {
-                            string dependencyVersion = ParseDependencyVersion(packageFile.dependencies[dependencyName]);
+                            string dependencyVersion = ParsePackageJsonDependencyVersion(packageFile.dependencies[dependencyName]);
                             unresolvedDependencies.Add(dependencyName, dependencyVersion);
                         }
                     }
@@ -152,7 +152,7 @@ namespace Com.Bit34games.PackageManager.Utilities
             AssetDatabase.Refresh();
         }
 
-        private PackageFileVO LoadPackageJson(RepositoryPackageVO package, SemanticVersionVO packageVersion)
+        public PackageFileVO LoadPackageJson(RepositoryPackageVO package, SemanticVersionVO packageVersion)
         {
             string        packagePath = PACKAGE_FOLDER + package.name + "@" + packageVersion;
             string        filePath    = packagePath + Path.DirectorySeparatorChar + PACKAGE_JSON_FILENAME;
@@ -161,7 +161,7 @@ namespace Com.Bit34games.PackageManager.Utilities
             return file;
         }
 
-        private string ParseDependencyVersion(string version)
+        public string ParsePackageJsonDependencyVersion(string version)
         {
             if (char.IsDigit(version[0]))
             {

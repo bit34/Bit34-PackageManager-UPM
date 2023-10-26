@@ -35,5 +35,16 @@ namespace Com.Bit34games.PackageManager.VOs
         {
             return ToString().GetHashCode();
         }
+
+        public bool IsLowerThan(SemanticVersionVO version)
+        {
+            if (major < version.major || 
+                minor < version.minor ||
+                patch < version.patch)
+            {
+                return true;
+            }
+            return false;
+        }
     }
 }
