@@ -5,51 +5,56 @@ using Com.Bit34games.PackageManager.Utilities;
 using Com.Bit34games.PackageManager.VOs;
 using Com.Bit34games.PackageManager.FileVOs;
 
-namespace Com.Bit34games.Unity.Editor
+namespace Com.Bit34games.PackageManager.Unity
 {
 
-    public class Bit34PackageManagerWindow : EditorWindow
+    public class PackageManagerEditorWindow : EditorWindow
     {
         //  CONSTANTS
-        private const float  TOOLBAR_PANEL_HEIGHT   = 20;
+        private const float  TOOLBAR_PANEL_HEIGHT   = 90;
         private const float  LIST_PANEL_WIDTH       = 220;
         private const int    PANEL_MARGIN           = 5;
+        private const string BETA_HELP_TEXT         = "Usage:\n"+
+                                                      "- Add this two lines to your .gitignore\n"+
+                                                      "\tAssets/Bit34/Packages/\n"+
+                                                      "\tAssets/Bit34/Packages.meta\n"+
+                                                      "- Add your packages to Assets/Bit34/repositories.json\n"+
+                                                      "- Add your dependencies to Assets/Bit34/dependencies.json\n"+
+                                                      "- Everytime you modify dependencies.json press Relaod button (and wait a little).";
 
 
         //  MEMBERS
-        private RepositoriesModel    _repositoriesModel;
-        private RepositoryOperations _repositoryOperations;
+        private PackageManagerModel      _packageManagerModel;
+        private PackageManagerOperations _packageManagerOperations;
         //      Tool bar
-        private Rect                _toolBarRect;
+        private Rect                     _toolBarRect;
         //      Package list
-        private Rect                _packageListRect;
-        private GUIStyle            _packageListStyle;
-        private Texture2D           _packageListBackgroundTexture;
-        private int                 _packageListSelection;
-        private Vector2             _packageListScrollPosition;
+        private Rect                     _packageListRect;
+        private GUIStyle                 _packageListStyle;
+        private Texture2D                _packageListBackgroundTexture;
+        private int                      _packageListSelection;
+        private Vector2                  _packageListScrollPosition;
         //      Package list item
-        private GUIStyle            _packageListItemStyle;
-        private Texture2D           _notloadedIconTexture;
-        private Texture2D           _loadedIconTexture;
-        private Texture2D           _outdatedIconTexture;
+        private GUIStyle                 _packageListItemStyle;
+        private Texture2D                _notloadedIconTexture;
+        private Texture2D                _loadedIconTexture;
+        private Texture2D                _outdatedIconTexture;
         //      Package detail
-        private Rect                _packageDetailRect;
-        private GUIStyle            _packageDetailStyle;
+        private Rect                     _packageDetailRect;
+        private GUIStyle                 _packageDetailStyle;
 
 
         //  METHODS
         [MenuItem("Bit34/Package Manager")]
         static void Init()
         {
-            Bit34PackageManagerWindow window = (Bit34PackageManagerWindow)EditorWindow.GetWindow(typeof(Bit34PackageManagerWindow));
+            PackageManagerEditorWindow window = (PackageManagerEditorWindow)EditorWindow.GetWindow(typeof(PackageManagerEditorWindow));
             window.titleContent = new GUIContent("Bit34 - Package Manager");
             window.Show();
         }
 
         private void OnEnable()
         {
-            _repositoriesModel    = new RepositoriesModel();
-            _repositoryOperations = new RepositoryOperations(_repositoriesModel);
 
             _packageListStyle = new GUIStyle();
             _packageListStyle.margin = new RectOffset(PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN);
@@ -64,6 +69,15 @@ namespace Com.Bit34games.Unity.Editor
 
             _packageDetailStyle = new GUIStyle();
             _packageDetailStyle.padding = new RectOffset(PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN);
+
+            if (_packageManagerModel == null)
+            {
+                _packageManagerModel      = new PackageManagerModel();
+                _packageManagerOperations = new PackageManagerOperations(_packageManagerModel);
+
+                ReloadRepositories();
+                _packageManagerOperations.LoadDependencies();
+            }
         }
 
         private void OnGUI()
@@ -88,10 +102,11 @@ namespace Com.Bit34games.Unity.Editor
         {
             GUILayout.BeginArea(_toolBarRect);
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Reload"))
+            EditorGUILayout.HelpBox(BETA_HELP_TEXT, MessageType.Warning, true);
+            if (GUILayout.Button("Reload", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
             {
                 ReloadRepositories();
-                _repositoryOperations.LoadDependencies();
+                _packageManagerOperations.LoadDependencies();
             }
 
             EditorGUILayout.EndHorizontal();
@@ -107,9 +122,9 @@ namespace Com.Bit34games.Unity.Editor
                                                                    GUILayout.Width(_packageListRect.width), 
                                                                    GUILayout.Height(_packageListRect.height));
 
-            for (int i = 0; i < _repositoriesModel.PackageCount; i++)
+            for (int i = 0; i < _packageManagerModel.PackageCount; i++)
             {
-                RepositoryPackageVO package = _repositoriesModel.GetPackage(i);
+                RepositoryPackageVO package = _packageManagerModel.GetPackage(i);
 
                 EditorGUILayout.BeginHorizontal();
                 if(DrawPackageListItem(package))
@@ -124,7 +139,7 @@ namespace Com.Bit34games.Unity.Editor
 
         private bool DrawPackageListItem(RepositoryPackageVO package)
         {
-            if (_repositoriesModel.HasDependency(package.name))
+            if (_packageManagerModel.HasDependency(package.name))
             {
                 GUILayout.Box(_loadedIconTexture, GUILayout.Width(16), GUILayout.Height(16));
             }
@@ -142,15 +157,23 @@ namespace Com.Bit34games.Unity.Editor
 
             if (_packageListSelection != -1)
             {
-                RepositoryPackageVO package = _repositoriesModel.GetPackage(_packageListSelection);
+                RepositoryPackageVO package = _packageManagerModel.GetPackage(_packageListSelection);
 
                 GUILayout.Label(package.name, EditorStyles.boldLabel);
                 GUILayout.Space(16);
 
-                if (_repositoriesModel.HasDependency(package.name))
+                GUILayout.Label("All versions :", EditorStyles.label);
+                for (int i = 0; i < package.VersionCount; i++)
                 {
-                    SemanticVersionVO packageVersion = _repositoriesModel.GetDependencyVersion(package.name);
-                    PackageFileVO     packageFile    = _repositoryOperations.LoadPackageJson(package, packageVersion);
+                    SemanticVersionVO packageVersion = package.GetVersion(i);
+                    GUILayout.Label(" - "+ packageVersion.ToString(), EditorStyles.label);
+                }
+                GUILayout.Space(16);
+
+                if (_packageManagerModel.HasDependency(package.name))
+                {
+                    SemanticVersionVO packageVersion = _packageManagerModel.GetDependencyVersion(package.name);
+                    PackageFileVO     packageFile    = _packageManagerOperations.LoadPackageJson(package, packageVersion);
 
                     GUILayout.Label("[Installed Version:" + packageVersion.ToString() + "]", EditorStyles.boldLabel);
                     GUILayout.Space(16);
@@ -165,18 +188,11 @@ namespace Com.Bit34games.Unity.Editor
                         GUILayout.Label("Dependencies :", EditorStyles.label);
                         foreach (string dependencyName in packageFile.dependencies.Keys)
                         {
-                            string dependencyVersion = _repositoryOperations.ParsePackageJsonDependencyVersion(packageFile.dependencies[dependencyName]);
+                            string dependencyVersion = _packageManagerOperations.ParsePackageJsonDependencyVersion(packageFile.dependencies[dependencyName]);
                             GUILayout.Label(" - "+ dependencyName + "@" + dependencyVersion, EditorStyles.label);
                         }
                         GUILayout.Space(16);
                     }
-                }
-
-                GUILayout.Label("All versions :", EditorStyles.label);
-                for (int i = 0; i < package.VersionCount; i++)
-                {
-                    SemanticVersionVO packageVersion = package.GetVersion(i);
-                    GUILayout.Label(" - "+ packageVersion.ToString(), EditorStyles.label);
                 }
             }
             GUILayout.EndArea();
@@ -186,8 +202,8 @@ namespace Com.Bit34games.Unity.Editor
         {
 //            ReloadRepositoriesProgress(0);
 
-            _repositoriesModel.Clear();
-            _repositoryOperations.LoadRepositories(ReloadRepositoriesProgress);
+            _packageManagerModel.Clear();
+            _packageManagerOperations.LoadRepositories(ReloadRepositoriesProgress);
 
 //            EditorUtility.ClearProgressBar();
         }
