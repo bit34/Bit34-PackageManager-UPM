@@ -8,5 +8,9 @@
     "name": "Bit34 Games",
     "url": "https://bit34games.com"
   },
+  "dependencies":
+  {
+    "com.unity.nuget.newtonsoft-json": "2.0.0"
+  },
   "type": "tool"
 }
