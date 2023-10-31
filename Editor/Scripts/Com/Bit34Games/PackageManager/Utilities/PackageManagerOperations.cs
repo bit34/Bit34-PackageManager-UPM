@@ -12,13 +12,13 @@ namespace Com.Bit34games.PackageManager.Utilities
     internal class PackageManagerOperations
     {
         //  CONSTANTS
-        private const string REPOSITORIES_JSON_FOLDER   = "Assets/Bit34/";
-        private const string REPOSITORIES_JSON_FILENAME = "repositories.json";
-        private const string DEPENDENCIES_JSON_FOLDER   = "Assets/Bit34/";
-        private const string DEPENDENCIES_JSON_FILENAME = "dependencies.json";
-        private const string PACKAGE_FOLDER             = "Assets/Bit34/Packages/";
-        private const string PACKAGE_JSON_FILENAME      = "package.json";
-        private const string VERSION_BRANCH_PREFIX      = "v";
+        private readonly string REPOSITORIES_JSON_FOLDER   = "Assets" + Path.DirectorySeparatorChar + "Bit34" + Path.DirectorySeparatorChar;
+        private readonly string REPOSITORIES_JSON_FILENAME = "repositories.json";
+        private readonly string DEPENDENCIES_JSON_FOLDER   = "Assets" + Path.DirectorySeparatorChar + "Bit34" + Path.DirectorySeparatorChar;
+        private readonly string DEPENDENCIES_JSON_FILENAME = "dependencies.json";
+        private readonly string PACKAGE_FOLDER             = "Assets" + Path.DirectorySeparatorChar + "Bit34" + Path.DirectorySeparatorChar + "Packages" + Path.DirectorySeparatorChar;
+        private readonly string PACKAGE_JSON_FILENAME      = "package.json";
+        private readonly string VERSION_BRANCH_PREFIX      = "v";
 
         //  MEMBERS
         //      Private
@@ -93,6 +93,11 @@ namespace Com.Bit34games.PackageManager.Utilities
             {
                 UnityEngine.Debug.LogWarning("Bit34 Package Manager : No dependencies file");
                 return;
+            }
+
+            if (Directory.Exists(PACKAGE_FOLDER)==false)
+            {
+                Directory.CreateDirectory(PACKAGE_FOLDER);
             }
             
             Dictionary<string, string> unresolvedDependencies = GetDependencyList(filePath);
