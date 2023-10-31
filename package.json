@@ -1,7 +1,7 @@
 {
   "name": "com.bit34games.packagemanager",
   "displayName": "Bit34 Package Manager",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Unity does not support some neccesary features (like packages with git dependencies). This tool will be a temporary solution until Unity implementes them.",
   "unity": "2019.4",
   "author": {

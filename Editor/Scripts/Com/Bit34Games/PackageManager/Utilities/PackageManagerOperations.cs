@@ -74,6 +74,11 @@ namespace Com.Bit34games.PackageManager.Utilities
 
         public void LoadDependencies()
         {
+            if (Directory.Exists(PACKAGE_FOLDER)==false)
+            {
+                Directory.CreateDirectory(PACKAGE_FOLDER);
+            }
+
 //  TODO only delete not needed package folders
 //            Dictionary<string, string> loadedDependencies     = GetLoadedDependencyList();
 
@@ -93,11 +98,6 @@ namespace Com.Bit34games.PackageManager.Utilities
             {
                 UnityEngine.Debug.LogWarning("Bit34 Package Manager : No dependencies file");
                 return;
-            }
-
-            if (Directory.Exists(PACKAGE_FOLDER)==false)
-            {
-                Directory.CreateDirectory(PACKAGE_FOLDER);
             }
             
             Dictionary<string, string> unresolvedDependencies = GetDependencyList(filePath);
