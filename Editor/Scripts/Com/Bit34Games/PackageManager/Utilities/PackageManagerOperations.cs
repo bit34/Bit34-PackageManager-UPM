@@ -79,18 +79,6 @@ namespace Com.Bit34games.PackageManager.Utilities
                 Directory.CreateDirectory(PACKAGE_FOLDER);
             }
 
-//  TODO only delete not needed package folders
-//            Dictionary<string, string> loadedDependencies     = GetLoadedDependencyList();
-
-            //  Delete all folders in package install folder
-            string[] packageFolderPaths = Directory.GetDirectories(PACKAGE_FOLDER);
-
-            for (int i = 0; i < packageFolderPaths.Length; i++)
-            {
-                Directory.Delete(packageFolderPaths[i], true);
-                File.Delete(packageFolderPaths[i] + ".meta");
-            }
-
             //  Load dependencies file
             string filePath = DEPENDENCIES_JSON_FOLDER + DEPENDENCIES_JSON_FILENAME;
 
@@ -100,7 +88,8 @@ namespace Com.Bit34games.PackageManager.Utilities
                 return;
             }
             
-            Dictionary<string, string> unresolvedDependencies = GetDependencyList(filePath);
+            Dictionary<string, DependencyPackageVO> loadedDependencies     = GetLoadedDependencyList();
+            Dictionary<string, SemanticVersionVO>   unresolvedDependencies = GetDependencyList(filePath);
 
             //  Resolve dependencies
             while (unresolvedDependencies.Count>0)
@@ -109,13 +98,22 @@ namespace Com.Bit34games.PackageManager.Utilities
                 enumerator.MoveNext();
 
                 string              packageName    = enumerator.Current;
-                SemanticVersionVO   packageVersion = SemanticVersionHelpers.ParseVersion(unresolvedDependencies[packageName]);
+                SemanticVersionVO   packageVersion = unresolvedDependencies[packageName];
                 RepositoryPackageVO package        = _packageManagerModel.GetPackageByName(packageName);
+                string              packagePath    = GetPackagePath(packageName, packageVersion);
 
                 unresolvedDependencies.Remove(packageName);
                 _packageManagerModel.AddDependency(packageName, packageVersion);
 
-                ClonePackage(package, packageVersion);
+                if (loadedDependencies.ContainsKey(packagePath) == false)
+                {
+                    ClonePackage(package, packageVersion);
+                }
+                else
+                {
+                    loadedDependencies.Remove(packagePath);
+                }
+
                 PackageFileVO packageFile = LoadPackageJson(package, packageVersion);
                 
                 if (packageFile.dependencies != null && packageFile.dependencies.Count > 0)
@@ -125,74 +123,92 @@ namespace Com.Bit34games.PackageManager.Utilities
                         if (_packageManagerModel.HasDependency(dependencyName) == false &&
                             unresolvedDependencies.ContainsKey(dependencyName) == false)
                         {
-                            string dependencyVersion = ParsePackageJsonDependencyVersion(packageFile.dependencies[dependencyName]);
+                            SemanticVersionVO dependencyVersion = ParsePackageJsonDependencyVersion(packageFile.dependencies[dependencyName]);
                             unresolvedDependencies.Add(dependencyName, dependencyVersion);
                         }
                     }
                 }
             }
+            
+            foreach (DependencyPackageVO loadedDependency in loadedDependencies.Values)
+            {
+                DeletePackage(loadedDependency.name, loadedDependency.version);
+            }
         }
 
-        private Dictionary<string, string> GetDependencyList(string filePath)
+        private Dictionary<string, SemanticVersionVO> GetDependencyList(string filePath)
         {
-            Dictionary<string, string> dependencies = new Dictionary<string, string>();
+            Dictionary<string, SemanticVersionVO> dependencies = new Dictionary<string, SemanticVersionVO>();
 
             string             fileContent = File.ReadAllText(filePath);
             DependenciesFileVO file        = JsonConvert.DeserializeObject<DependenciesFileVO>(fileContent);
 
             foreach (string dependencyName in file.dependencies.Keys)
             {
-                dependencies.Add(dependencyName, file.dependencies[dependencyName]);
+                dependencies.Add(dependencyName, SemanticVersionHelpers.ParseVersion(file.dependencies[dependencyName]));
             }
             
             return dependencies;
         }
 
-        private Dictionary<string, string> GetLoadedDependencyList()
+        private Dictionary<string, DependencyPackageVO> GetLoadedDependencyList()
         {
-            Dictionary<string, string> dependencies = new Dictionary<string, string>();
+            Dictionary<string, DependencyPackageVO> dependencies = new Dictionary<string, DependencyPackageVO>();
 
             string[] packageFolderPaths = Directory.GetDirectories(PACKAGE_FOLDER);
 
             for (int i = 0; i < packageFolderPaths.Length; i++)
             {
-                string packageFolderPath = packageFolderPaths[i];
-                int    startIndex        = Math.Max(0, packageFolderPath.LastIndexOf(Path.DirectorySeparatorChar));
-                int    separatorIndex    = packageFolderPath.LastIndexOf('@');
-                string packageName       = packageFolderPath.Substring(startIndex+1, separatorIndex-startIndex-1);
-                string packageVersion    = packageFolderPath.Substring(separatorIndex+1);
-                dependencies.Add(packageName, packageVersion);
+                string              packagePath    = packageFolderPaths[i];
+                int                 startIndex     = Math.Max(0, packagePath.LastIndexOf(Path.DirectorySeparatorChar));
+                int                 separatorIndex = packagePath.LastIndexOf('@');
+                string              packageName    = packagePath.Substring(startIndex+1, separatorIndex-startIndex-1);
+                string              packageVersion = packagePath.Substring(separatorIndex+1);
+                DependencyPackageVO dependency     = new DependencyPackageVO(packageName, SemanticVersionHelpers.ParseVersion(packageVersion));
+                dependencies.Add(packagePath, dependency);
             }
 
             return dependencies;
         }
 
+        private string GetPackagePath(string packageName, SemanticVersionVO packageVersion)
+        {
+            return PACKAGE_FOLDER + packageName + "@" + packageVersion;
+        }
+
         private void ClonePackage(RepositoryPackageVO package, SemanticVersionVO packageVersion)
         {
-            string packagePath = PACKAGE_FOLDER + package.name + "@" + packageVersion;
+            string packagePath = GetPackagePath(package.name, packageVersion);
             GitHelpers.Clone(packagePath, package.url);
             GitHelpers.CheckoutBranch(packagePath, VERSION_BRANCH_PREFIX + packageVersion);
             AssetDatabase.Refresh();
         }
 
+        private void DeletePackage(string packageName, SemanticVersionVO packageVersion)
+        {
+            string packagePath = GetPackagePath(packageName, packageVersion);
+            Directory.Delete(packagePath, true);
+            File.Delete(packagePath + ".meta");
+        }
+
         public PackageFileVO LoadPackageJson(RepositoryPackageVO package, SemanticVersionVO packageVersion)
         {
-            string        packagePath = PACKAGE_FOLDER + package.name + "@" + packageVersion;
+            string        packagePath = GetPackagePath(package.name, packageVersion);
             string        filePath    = packagePath + Path.DirectorySeparatorChar + PACKAGE_JSON_FILENAME;
             string        fileContent = File.ReadAllText(filePath);
             PackageFileVO file        = JsonConvert.DeserializeObject<PackageFileVO>(fileContent);
             return file;
         }
 
-        public string ParsePackageJsonDependencyVersion(string version)
+        public SemanticVersionVO ParsePackageJsonDependencyVersion(string version)
         {
             if (char.IsDigit(version[0]))
             {
-                return version;
+                return SemanticVersionHelpers.ParseVersion(version);
             }
 
             int startIndex = version.LastIndexOf('v') + 1;
-            return version.Substring(startIndex);
+            return SemanticVersionHelpers.ParseVersion(version.Substring(startIndex));
         }
     }
 }

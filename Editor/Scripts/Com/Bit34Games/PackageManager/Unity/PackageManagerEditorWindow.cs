@@ -11,13 +11,10 @@ namespace Com.Bit34games.PackageManager.Unity
     public class PackageManagerEditorWindow : EditorWindow
     {
         //  CONSTANTS
-        private const float  TOOLBAR_PANEL_HEIGHT   = 90;
+        private const float  TOOLBAR_PANEL_HEIGHT   = 54;
         private const float  LIST_PANEL_WIDTH       = 220;
         private const int    PANEL_MARGIN           = 5;
-        private const string BETA_HELP_TEXT         = "Usage:\n"+
-                                                      "- Add this two lines to your .gitignore\n"+
-                                                      "\tAssets/Bit34/Packages/\n"+
-                                                      "\tAssets/Bit34/Packages.meta\n"+
+        private const string BETA_HELP_TEXT         = "Usage: (For more details checkout Bit34Games.com)\n"+
                                                       "- Add your packages to Assets/Bit34/repositories.json\n"+
                                                       "- Add your dependencies to Assets/Bit34/dependencies.json\n"+
                                                       "- Everytime you modify dependencies.json press Relaod button (and wait a little).";
@@ -188,7 +185,7 @@ namespace Com.Bit34games.PackageManager.Unity
                         GUILayout.Label("Dependencies :", EditorStyles.label);
                         foreach (string dependencyName in packageFile.dependencies.Keys)
                         {
-                            string dependencyVersion = _packageManagerOperations.ParsePackageJsonDependencyVersion(packageFile.dependencies[dependencyName]);
+                            SemanticVersionVO dependencyVersion = _packageManagerOperations.ParsePackageJsonDependencyVersion(packageFile.dependencies[dependencyName]);
                             GUILayout.Label(" - "+ dependencyName + "@" + dependencyVersion, EditorStyles.label);
                         }
                         GUILayout.Space(16);
