@@ -1,0 +1,6 @@
+{
+	"name": "Com.Bit34games.PackageManager.Editor",
+    "includePlatforms": [
+        "Editor"
+    ]
+}
