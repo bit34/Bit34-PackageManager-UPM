@@ -4,7 +4,7 @@ using Com.Bit34games.PackageManager.VOs;
 
 namespace Com.Bit34games.PackageManager.Models
 {
-    internal class RepositoriesModel
+    internal class PackageManagerModel
     {
         //  MEMBERS
         public int PackageCount { get { return _packages.Count; } }
@@ -14,7 +14,7 @@ namespace Com.Bit34games.PackageManager.Models
         private Dictionary<string, DependencyPackageVO> _dependencies;
 
         //  CONSTRUCTORS
-        public RepositoriesModel()
+        public PackageManagerModel()
         {
             _packages             = new List<RepositoryPackageVO>();
             _packagesByName       = new Dictionary<string, RepositoryPackageVO>();
