@@ -8,7 +8,13 @@ namespace Com.Bit34games.PackageManager.Utilities
         //  METHODS
         public static void Clone(string directory, string gitURL, bool waitForExit = true)
         {
-            Process process = Process.Start("git", " clone -q " + gitURL + " " + directory);
+            Process process = new Process();
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.FileName = "git";
+            process.StartInfo.Arguments = " clone -q " + gitURL + " " + directory;
+            process.Start();
             if(waitForExit)
             {
                 process.WaitForExit();
@@ -17,7 +23,13 @@ namespace Com.Bit34games.PackageManager.Utilities
 
         public static void Fetch(string directory, bool waitForExit = true)
         {
-            Process process = Process.Start("git", " -C " + directory + " fetch -q");
+            Process process = new Process();
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.FileName = "git";
+            process.StartInfo.Arguments = " -C " + directory + " fetch -q";
+            process.Start();
             if(waitForExit)
             {
                 process.WaitForExit();
@@ -26,7 +38,13 @@ namespace Com.Bit34games.PackageManager.Utilities
 
         public static void CheckoutBranch(string directory, string branchName, bool waitForExit = true)
         {
-            Process process = Process.Start("git", " -C " + directory + " checkout " + branchName + " -q");
+            Process process = new Process();
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.FileName = "git";
+            process.StartInfo.Arguments = " -C " + directory + " checkout " + branchName + " -q";
+            process.Start();
             if(waitForExit)
             {
                 process.WaitForExit();
@@ -35,7 +53,13 @@ namespace Com.Bit34games.PackageManager.Utilities
 
         public static void InitSubmodules(string directory, bool waitForExit = true)
         {
-            Process process = Process.Start("git", " -C " + directory + " submodule update --init -q");
+            Process process = new Process();
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
+            process.StartInfo.FileName = "git";
+            process.StartInfo.Arguments = " -C " + directory + " submodule update --init -q";
+            process.Start();
             if(waitForExit)
             {
                 process.WaitForExit();
@@ -46,10 +70,11 @@ namespace Com.Bit34games.PackageManager.Utilities
         {
             List<string> tags = new List<string>();
             Process process = new Process();
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
             process.StartInfo.FileName  = "git";
             process.StartInfo.Arguments = " -C "  + directory + " tag";
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.RedirectStandardOutput = true;
             process.OutputDataReceived += (object sender, DataReceivedEventArgs e)=>{ tags.Add(e.Data); };
             process.Start();
             process.BeginOutputReadLine();
@@ -64,10 +89,11 @@ namespace Com.Bit34games.PackageManager.Utilities
 
             List<string> tags = new List<string>();
             Process process = new Process();
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
             process.StartInfo.FileName  = "git";
             process.StartInfo.Arguments = "-c 'versionsort.suffix=-' ls-remote --tags " + url;
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.RedirectStandardOutput = true;
             process.OutputDataReceived += (object sender, DataReceivedEventArgs e)=>{ if (string.IsNullOrEmpty(e.Data)==false){tags.Add(e.Data);} };
             process.Start();
             process.BeginOutputReadLine();
