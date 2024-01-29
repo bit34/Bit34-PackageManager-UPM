@@ -7,6 +7,7 @@ using Com.Bit34games.PackageManager.VOs;
 using Newtonsoft.Json;  //   "com.unity.nuget.newtonsoft-json": "2.0.0",
 using UnityEditor;
 
+
 namespace Com.Bit34games.PackageManager.Utilities
 {
     internal class PackageManagerOperations
@@ -20,9 +21,11 @@ namespace Com.Bit34games.PackageManager.Utilities
         private readonly string PACKAGE_JSON_FILENAME      = "package.json";
         private readonly string VERSION_BRANCH_PREFIX      = "v";
 
+
         //  MEMBERS
         //      Private
         private PackageManagerModel _packageManagerModel;
+
 
         //  CONSTRUCTORS
         public PackageManagerOperations(PackageManagerModel packageManagerModel)
@@ -40,7 +43,7 @@ namespace Com.Bit34games.PackageManager.Utilities
                 return;
             }
 
-            string fileContent = File.ReadAllText(filePath);
+            string fileContent = StorageHelpers.LoadTextFile(filePath);
             if (string.IsNullOrEmpty(fileContent))
             {
                 UnityEngine.Debug.LogWarning("Bit34 Package Manager : Can not read repository file");
@@ -123,7 +126,7 @@ namespace Com.Bit34games.PackageManager.Utilities
                         if (_packageManagerModel.HasDependency(dependencyName) == false &&
                             unresolvedDependencies.ContainsKey(dependencyName) == false)
                         {
-                            SemanticVersionVO dependencyVersion = ParsePackageJsonDependencyVersion(packageFile.dependencies[dependencyName]);
+                            SemanticVersionVO dependencyVersion = SemanticVersionHelpers.ParseVersionFromTag(packageFile.dependencies[dependencyName]);
                             unresolvedDependencies.Add(dependencyName, dependencyVersion);
                         }
                     }
@@ -140,7 +143,7 @@ namespace Com.Bit34games.PackageManager.Utilities
         {
             Dictionary<string, SemanticVersionVO> dependencies = new Dictionary<string, SemanticVersionVO>();
 
-            string             fileContent = File.ReadAllText(filePath);
+            string             fileContent = StorageHelpers.LoadTextFile(filePath);
             DependenciesFileVO file        = JsonConvert.DeserializeObject<DependenciesFileVO>(fileContent);
 
             foreach (string dependencyName in file.dependencies.Keys)
@@ -187,47 +190,17 @@ namespace Com.Bit34games.PackageManager.Utilities
         private void DeletePackage(string packageName, SemanticVersionVO packageVersion)
         {
             string packagePath = GetPackagePath(packageName, packageVersion);
-            DeleteDirectory(packagePath);
-            File.Delete(packagePath + ".meta");
-        }
-
-        private static void DeleteDirectory(string target_dir)
-        {
-            string[] files = Directory.GetFiles(target_dir);
-            string[] dirs = Directory.GetDirectories(target_dir);
-
-            foreach (string file in files)
-            {
-                File.SetAttributes(file, FileAttributes.Normal);
-                File.Delete(file);
-            }
-
-            foreach (string dir in dirs)
-            {
-                DeleteDirectory(dir);
-            }
-
-            Directory.Delete(target_dir, false);
+            StorageHelpers.DeleteDirectory(packagePath);
+            StorageHelpers.DeleteFile(packagePath + ".meta");
         }
 
         public PackageFileVO LoadPackageJson(RepositoryPackageVO package, SemanticVersionVO packageVersion)
         {
             string        packagePath = GetPackagePath(package.name, packageVersion);
-            string        filePath    = packagePath + Path.DirectorySeparatorChar + PACKAGE_JSON_FILENAME;
-            string        fileContent = File.ReadAllText(filePath);
+            string        fileContent = StorageHelpers.LoadTextFile(packagePath + Path.DirectorySeparatorChar + PACKAGE_JSON_FILENAME);
             PackageFileVO file        = JsonConvert.DeserializeObject<PackageFileVO>(fileContent);
             return file;
         }
 
-        public SemanticVersionVO ParsePackageJsonDependencyVersion(string version)
-        {
-            if (char.IsDigit(version[0]))
-            {
-                return SemanticVersionHelpers.ParseVersion(version);
-            }
-
-            int startIndex = version.LastIndexOf('v') + 1;
-            return SemanticVersionHelpers.ParseVersion(version.Substring(startIndex));
-        }
     }
 }

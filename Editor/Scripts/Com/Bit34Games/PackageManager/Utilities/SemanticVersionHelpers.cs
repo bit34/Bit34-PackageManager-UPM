@@ -51,6 +51,17 @@ namespace Com.Bit34games.PackageManager.Utilities
             return new SemanticVersionVO(major, minor, patch);
         }
 
+        public static SemanticVersionVO ParseVersionFromTag(string version)
+        {
+            if (char.IsDigit(version[0]))
+            {
+                return ParseVersion(version);
+            }
+
+            int startIndex = version.LastIndexOf('v') + 1;
+            return ParseVersion(version.Substring(startIndex));
+        }
+
         public static SemanticVersionVO[] ParseVersionArray(string[] versions)
         {
             SemanticVersionVO[] parsedVersions = new SemanticVersionVO[versions.Length];

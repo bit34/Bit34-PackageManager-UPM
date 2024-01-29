@@ -17,7 +17,7 @@ namespace Com.Bit34games.PackageManager.Unity
         private const string BETA_HELP_TEXT         = "Usage: (For more details checkout Bit34Games.com)\n"+
                                                       "- Add your packages to Assets/Bit34/repositories.json\n"+
                                                       "- Add your dependencies to Assets/Bit34/dependencies.json\n"+
-                                                      "- Everytime you modify dependencies.json press Relaod button (and wait a little).";
+                                                      "- Everytime you modify dependencies.json press Reload button (and wait a little).";
 
 
         //  MEMBERS
@@ -185,7 +185,7 @@ namespace Com.Bit34games.PackageManager.Unity
                         GUILayout.Label("Dependencies :", EditorStyles.label);
                         foreach (string dependencyName in packageFile.dependencies.Keys)
                         {
-                            SemanticVersionVO dependencyVersion = _packageManagerOperations.ParsePackageJsonDependencyVersion(packageFile.dependencies[dependencyName]);
+                            SemanticVersionVO dependencyVersion = SemanticVersionHelpers.ParseVersionFromTag(packageFile.dependencies[dependencyName]);
                             GUILayout.Label(" - "+ dependencyName + "@" + dependencyVersion, EditorStyles.label);
                         }
                         GUILayout.Space(16);
