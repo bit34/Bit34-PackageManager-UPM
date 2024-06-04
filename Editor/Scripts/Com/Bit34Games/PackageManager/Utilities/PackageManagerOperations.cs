@@ -75,6 +75,46 @@ namespace Com.Bit34games.PackageManager.Utilities
             _packageManagerModel.AddPackage(name, url, SemanticVersionHelpers.ParseVersionArray(tags.ToArray()));
         }
 
+        public bool CheckLoadedDependencies()
+        {
+            if (Directory.Exists(PACKAGE_FOLDER)==false)
+            {
+                return false;
+            }
+
+            //  Load dependencies file
+            string filePath = DEPENDENCIES_JSON_FOLDER + DEPENDENCIES_JSON_FILENAME;
+
+            if (File.Exists(filePath) == false)
+            {
+                UnityEngine.Debug.LogWarning("Bit34 Package Manager : No dependencies file");
+                return false;
+            }
+
+            Dictionary<string, SemanticVersionVO>   dependencies       = GetDependencyList(filePath);
+            Dictionary<string, DependencyPackageVO> loadedDependencies = GetLoadedDependencyList();
+
+            foreach (string dependencyName in dependencies.Keys)
+            {
+                SemanticVersionVO dependencyVersion = dependencies[dependencyName];
+                bool              dependencyFound   = false;
+                foreach (DependencyPackageVO loadedDependency in loadedDependencies.Values)
+                {
+                    if (loadedDependency.name    == dependencyName && 
+                        loadedDependency.version == dependencyVersion)
+                    {
+                        dependencyFound = true;
+                        break;
+                    }
+                }
+                if (dependencyFound == false)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public void LoadDependencies()
         {
             if (Directory.Exists(PACKAGE_FOLDER)==false)

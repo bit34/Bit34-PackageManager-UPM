@@ -4,10 +4,12 @@ using Com.Bit34games.PackageManager.Models;
 using Com.Bit34games.PackageManager.Utilities;
 using Com.Bit34games.PackageManager.VOs;
 using Com.Bit34games.PackageManager.FileVOs;
+using UnityEditor.SceneManagement;
+using UnityEngine.SceneManagement;
 
 namespace Com.Bit34games.PackageManager.Unity
 {
-
+//X    [InitializeOnLoad]
     public class PackageManagerEditorWindow : EditorWindow
     {
         //  CONSTANTS
@@ -39,6 +41,20 @@ namespace Com.Bit34games.PackageManager.Unity
         //      Package detail
         private Rect                     _packageDetailRect;
         private GUIStyle                 _packageDetailStyle;
+        
+
+        //  CONSTRUCTORS
+//X        static PackageManagerEditorWindow()
+//X        {
+//X            PackageManagerModel      packageManagerModel      = new PackageManagerModel();
+//X            PackageManagerOperations packageManagerOperations = new PackageManagerOperations(packageManagerModel);
+//X
+//X            packageManagerOperations.LoadRepositories((float progress)=>{});
+//X            if (packageManagerOperations.CheckLoadedDependencies() == false)
+//X            {
+//X                packageManagerOperations.LoadDependencies();
+//X            }
+//X        }
 
 
         //  METHODS
@@ -52,7 +68,6 @@ namespace Com.Bit34games.PackageManager.Unity
 
         private void OnEnable()
         {
-
             _packageListStyle = new GUIStyle();
             _packageListStyle.margin = new RectOffset(PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN);
             _packageListBackgroundTexture = EditorGUIUtility.FindTexture("d_tranp");
@@ -72,8 +87,8 @@ namespace Com.Bit34games.PackageManager.Unity
                 _packageManagerModel      = new PackageManagerModel();
                 _packageManagerOperations = new PackageManagerOperations(_packageManagerModel);
 
-                ReloadRepositories();
-                _packageManagerOperations.LoadDependencies();
+//X                ReloadRepositories();
+//X                _packageManagerOperations.LoadDependencies();
             }
         }
 
@@ -102,8 +117,28 @@ namespace Com.Bit34games.PackageManager.Unity
             EditorGUILayout.HelpBox(BETA_HELP_TEXT, MessageType.Warning, true);
             if (GUILayout.Button("Reload", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
             {
-                ReloadRepositories();
-                _packageManagerOperations.LoadDependencies();
+                Scene activeScene = EditorSceneManager.GetActiveScene();
+                if (activeScene.isDirty)
+                {
+                    EditorUtility.DisplayDialog("Warning", "Please save your scene before updating packages.", "Ok");
+                }
+                else
+                {
+                    string scenePath = activeScene.path;
+                    Scene  tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
+
+                    ReloadRepositories();
+                    _packageManagerOperations.LoadDependencies();
+//                    EditorUtility.RequestScriptReload();
+
+                    if (string.IsNullOrEmpty(scenePath) == false)
+                    {
+                        EditorSceneManager.OpenScene(scenePath);
+                    }
+                    
+                    GUIUtility.ExitGUI();
+                }
+
             }
 
             EditorGUILayout.EndHorizontal();
