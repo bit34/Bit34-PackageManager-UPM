@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Com.Bit34games.PackageManager.Constants;
 using Com.Bit34games.PackageManager.FileVOs;
 using Com.Bit34games.PackageManager.Models;
 using Com.Bit34games.PackageManager.VOs;
@@ -12,16 +13,6 @@ namespace Com.Bit34games.PackageManager.Utilities
 {
     internal class PackageManagerOperations
     {
-        //  CONSTANTS
-        private readonly string REPOSITORIES_JSON_FOLDER   = "Assets" + Path.DirectorySeparatorChar + "Bit34" + Path.DirectorySeparatorChar;
-        private readonly string REPOSITORIES_JSON_FILENAME = "repositories.json";
-        private readonly string DEPENDENCIES_JSON_FOLDER   = "Assets" + Path.DirectorySeparatorChar + "Bit34" + Path.DirectorySeparatorChar;
-        private readonly string DEPENDENCIES_JSON_FILENAME = "dependencies.json";
-        private readonly string PACKAGE_FOLDER             = "Assets" + Path.DirectorySeparatorChar + "Bit34" + Path.DirectorySeparatorChar + "Packages" + Path.DirectorySeparatorChar;
-        private readonly string PACKAGE_JSON_FILENAME      = "package.json";
-        private readonly string VERSION_BRANCH_PREFIX      = "v";
-
-
         //  MEMBERS
         //      Private
         private PackageManagerModel _packageManagerModel;
@@ -36,13 +27,7 @@ namespace Com.Bit34games.PackageManager.Utilities
         //  METHODS
         public void LoadRepositories(Action<float> progressHandler)
         {
-            string filePath = REPOSITORIES_JSON_FOLDER + REPOSITORIES_JSON_FILENAME;
-            if (File.Exists(filePath) == false)
-            {
-                UnityEngine.Debug.LogWarning("Bit34 Package Manager : No repository file");
-                return;
-            }
-
+            string filePath    = PackageManagerConstants.REPOSITORIES_JSON_FOLDER + PackageManagerConstants.REPOSITORIES_JSON_FILENAME;
             string fileContent = StorageHelpers.LoadTextFile(filePath);
             if (string.IsNullOrEmpty(fileContent))
             {
@@ -77,20 +62,13 @@ namespace Com.Bit34games.PackageManager.Utilities
 
         public bool CheckLoadedDependencies()
         {
-            if (Directory.Exists(PACKAGE_FOLDER)==false)
+            if (Directory.Exists(PackageManagerConstants.PACKAGE_FOLDER)==false)
             {
                 return false;
             }
 
             //  Load dependencies file
-            string filePath = DEPENDENCIES_JSON_FOLDER + DEPENDENCIES_JSON_FILENAME;
-
-            if (File.Exists(filePath) == false)
-            {
-                UnityEngine.Debug.LogWarning("Bit34 Package Manager : No dependencies file");
-                return false;
-            }
-
+            string                                  filePath           = PackageManagerConstants.DEPENDENCIES_JSON_FOLDER + PackageManagerConstants.DEPENDENCIES_JSON_FILENAME;
             Dictionary<string, SemanticVersionVO>   dependencies       = GetDependencyList(filePath);
             Dictionary<string, DependencyPackageVO> loadedDependencies = GetLoadedDependencyList();
 
@@ -117,13 +95,13 @@ namespace Com.Bit34games.PackageManager.Utilities
 
         public void LoadDependencies()
         {
-            if (Directory.Exists(PACKAGE_FOLDER)==false)
+            if (Directory.Exists(PackageManagerConstants.PACKAGE_FOLDER)==false)
             {
-                Directory.CreateDirectory(PACKAGE_FOLDER);
+                Directory.CreateDirectory(PackageManagerConstants.PACKAGE_FOLDER);
             }
 
             //  Load dependencies file
-            string filePath = DEPENDENCIES_JSON_FOLDER + DEPENDENCIES_JSON_FILENAME;
+            string filePath = PackageManagerConstants.DEPENDENCIES_JSON_FOLDER + PackageManagerConstants.DEPENDENCIES_JSON_FILENAME;
 
             if (File.Exists(filePath) == false)
             {
@@ -198,7 +176,7 @@ namespace Com.Bit34games.PackageManager.Utilities
         {
             Dictionary<string, DependencyPackageVO> dependencies = new Dictionary<string, DependencyPackageVO>();
 
-            string[] packageFolderPaths = Directory.GetDirectories(PACKAGE_FOLDER);
+            string[] packageFolderPaths = Directory.GetDirectories(PackageManagerConstants.PACKAGE_FOLDER);
 
             for (int i = 0; i < packageFolderPaths.Length; i++)
             {
@@ -216,14 +194,14 @@ namespace Com.Bit34games.PackageManager.Utilities
 
         private string GetPackagePath(string packageName, SemanticVersionVO packageVersion)
         {
-            return PACKAGE_FOLDER + packageName + "@" + packageVersion;
+            return PackageManagerConstants.PACKAGE_FOLDER + packageName + "@" + packageVersion;
         }
 
         private void ClonePackage(RepositoryPackageVO package, SemanticVersionVO packageVersion)
         {
             string packagePath = GetPackagePath(package.name, packageVersion);
             GitHelpers.Clone(packagePath, package.url);
-            GitHelpers.CheckoutBranch(packagePath, VERSION_BRANCH_PREFIX + packageVersion);
+            GitHelpers.CheckoutBranch(packagePath, PackageManagerConstants.VERSION_BRANCH_PREFIX + packageVersion);
             AssetDatabase.Refresh();
         }
 
@@ -237,7 +215,7 @@ namespace Com.Bit34games.PackageManager.Utilities
         public PackageFileVO LoadPackageJson(RepositoryPackageVO package, SemanticVersionVO packageVersion)
         {
             string        packagePath = GetPackagePath(package.name, packageVersion);
-            string        fileContent = StorageHelpers.LoadTextFile(packagePath + Path.DirectorySeparatorChar + PACKAGE_JSON_FILENAME);
+            string        fileContent = StorageHelpers.LoadTextFile(packagePath + Path.DirectorySeparatorChar + PackageManagerConstants.PACKAGE_JSON_FILENAME);
             PackageFileVO file        = JsonConvert.DeserializeObject<PackageFileVO>(fileContent);
             return file;
         }

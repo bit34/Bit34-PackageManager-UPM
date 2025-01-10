@@ -6,6 +6,9 @@ using Com.Bit34games.PackageManager.VOs;
 using Com.Bit34games.PackageManager.FileVOs;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
+using Com.Bit34games.PackageManager.Constants;
+using System.IO;
+
 
 namespace Com.Bit34games.PackageManager.Unity
 {
@@ -16,6 +19,9 @@ namespace Com.Bit34games.PackageManager.Unity
         private const float  TOOLBAR_PANEL_HEIGHT   = 54;
         private const float  LIST_PANEL_WIDTH       = 220;
         private const int    PANEL_MARGIN           = 5;
+        private const string CAN_NOT_FOUND_GIT_TEXT             = "Can not found git";
+        private const string CAN_NOT_FOUND_REPOSITORIES_TEXT    = "Can not found Assets/Bit34/repositories.json";
+        private const string CAN_NOT_FOUND_DEPENDENCIES_TEXT    = "Can not found Assets/Bit34/dependencies.json";
         private const string BETA_HELP_TEXT         = "Usage: (For more details checkout Bit34Games.com)\n"+
                                                       "- Add your packages to Assets/Bit34/repositories.json\n"+
                                                       "- Add your dependencies to Assets/Bit34/dependencies.json\n"+
@@ -112,9 +118,44 @@ namespace Com.Bit34games.PackageManager.Unity
 
         private void DrawToolBar()
         {
+            string version;
+            if (GitHelpers.GetVersion(out version)==false)
+            {
+                GUILayout.BeginArea(_toolBarRect);
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.HelpBox(CAN_NOT_FOUND_GIT_TEXT, MessageType.Warning, true);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.EndArea();
+                return;
+            }
+
+            string repositoriesFilePath = PackageManagerConstants.REPOSITORIES_JSON_FOLDER + PackageManagerConstants.REPOSITORIES_JSON_FILENAME;
+            if (File.Exists(repositoriesFilePath) == false)
+            {
+                GUILayout.BeginArea(_toolBarRect);
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.HelpBox(CAN_NOT_FOUND_REPOSITORIES_TEXT, MessageType.Warning, true);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.EndArea();
+                return;
+            }
+
+            string dependenciesFilePath = PackageManagerConstants.DEPENDENCIES_JSON_FOLDER + PackageManagerConstants.DEPENDENCIES_JSON_FILENAME;
+            if (File.Exists(dependenciesFilePath) == false)
+            {
+                GUILayout.BeginArea(_toolBarRect);
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.HelpBox(CAN_NOT_FOUND_DEPENDENCIES_TEXT, MessageType.Warning, true);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.EndArea();
+                return;
+            }
+
             GUILayout.BeginArea(_toolBarRect);
             EditorGUILayout.BeginHorizontal();
+            
             EditorGUILayout.HelpBox(BETA_HELP_TEXT, MessageType.Warning, true);
+
             if (GUILayout.Button("Reload", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
             {
                 Scene activeScene = EditorSceneManager.GetActiveScene();
@@ -138,11 +179,9 @@ namespace Com.Bit34games.PackageManager.Unity
                     
                     GUIUtility.ExitGUI();
                 }
-
             }
 
             EditorGUILayout.EndHorizontal();
-
             GUILayout.EndArea();
         }
 
