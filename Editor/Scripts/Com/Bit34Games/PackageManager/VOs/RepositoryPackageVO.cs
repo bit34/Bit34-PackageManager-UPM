@@ -9,9 +9,10 @@ namespace Com.Bit34games.PackageManager.VOs
         //      Private
         private SemanticVersionVO[] _versions;
 
+
         //  CONSTRUCTORS
-        public RepositoryPackageVO(string   name,
-                                   string   url,
+        public RepositoryPackageVO(string              name,
+                                   string              url,
                                    SemanticVersionVO[] versions)
         {
             this.name = name;
@@ -19,7 +20,13 @@ namespace Com.Bit34games.PackageManager.VOs
             _versions = versions;
         }
 
+
         //  METHODS
+        public void UpdateVersions(SemanticVersionVO[] versions)
+        {
+            _versions = versions;
+        }
+
         public SemanticVersionVO GetVersion(int index)
         {
             return _versions[index];

@@ -8,6 +8,9 @@ using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 using Com.Bit34games.PackageManager.Constants;
 using System.IO;
+using System.Threading.Tasks;
+using System;
+using System.Collections.Generic;
 
 
 namespace Com.Bit34games.PackageManager.Unity
@@ -19,9 +22,6 @@ namespace Com.Bit34games.PackageManager.Unity
         private const float  TOOLBAR_PANEL_HEIGHT   = 54;
         private const float  LIST_PANEL_WIDTH       = 220;
         private const int    PANEL_MARGIN           = 5;
-        private const string CAN_NOT_FOUND_GIT_TEXT             = "Can not found git";
-        private const string CAN_NOT_FOUND_REPOSITORIES_TEXT    = "Can not found Assets/Bit34/repositories.json";
-        private const string CAN_NOT_FOUND_DEPENDENCIES_TEXT    = "Can not found Assets/Bit34/dependencies.json";
         private const string BETA_HELP_TEXT         = "Usage: (For more details checkout Bit34Games.com)\n"+
                                                       "- Add your packages to Assets/Bit34/repositories.json\n"+
                                                       "- Add your dependencies to Assets/Bit34/dependencies.json\n"+
@@ -31,6 +31,10 @@ namespace Com.Bit34games.PackageManager.Unity
         //  MEMBERS
         private PackageManagerModel      _packageManagerModel;
         private PackageManagerOperations _packageManagerOperations;
+        //      Messages
+        private Rect                     _fullRect;
+        private GUIStyle                 _loadingStyle;
+        private string[]                 _loadingTextFrames;
         //      Tool bar
         private Rect                     _toolBarRect;
         //      Package list
@@ -47,21 +51,9 @@ namespace Com.Bit34games.PackageManager.Unity
         //      Package detail
         private Rect                     _packageDetailRect;
         private GUIStyle                 _packageDetailStyle;
+        private GUIStyle                 _packageDetailHeaderStyle;
+        private GUIStyle                 _packageDetailTextStyle;
         
-
-        //  CONSTRUCTORS
-//X        static PackageManagerEditorWindow()
-//X        {
-//X            PackageManagerModel      packageManagerModel      = new PackageManagerModel();
-//X            PackageManagerOperations packageManagerOperations = new PackageManagerOperations(packageManagerModel);
-//X
-//X            packageManagerOperations.LoadRepositories((float progress)=>{});
-//X            if (packageManagerOperations.CheckLoadedDependencies() == false)
-//X            {
-//X                packageManagerOperations.LoadDependencies();
-//X            }
-//X        }
-
 
         //  METHODS
         [MenuItem("Bit34/Package Manager")]
@@ -74,6 +66,21 @@ namespace Com.Bit34games.PackageManager.Unity
 
         private void OnEnable()
         {
+            _loadingStyle = new GUIStyle();
+            _loadingStyle.fontSize = 50;
+            _loadingStyle.fontStyle = FontStyle.Bold;
+            _loadingStyle.alignment = TextAnchor.MiddleCenter;
+            _loadingStyle.wordWrap = false;
+            _loadingStyle.normal.textColor = Color.white;
+
+            _loadingTextFrames = new string[4]
+            {
+                "Loading",
+                "Loading.",
+                "Loading..",
+                "Loading...",
+            };
+
             _packageListStyle = new GUIStyle();
             _packageListStyle.margin = new RectOffset(PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN);
             _packageListBackgroundTexture = EditorGUIUtility.FindTexture("d_tranp");
@@ -88,27 +95,123 @@ namespace Com.Bit34games.PackageManager.Unity
             _packageDetailStyle = new GUIStyle();
             _packageDetailStyle.padding = new RectOffset(PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN, PANEL_MARGIN);
 
+            _packageDetailHeaderStyle = new GUIStyle(EditorStyles.boldLabel);
+
+            _packageDetailTextStyle = new GUIStyle(EditorStyles.wordWrappedLabel);
+
             if (_packageManagerModel == null)
             {
                 _packageManagerModel      = new PackageManagerModel();
                 _packageManagerOperations = new PackageManagerOperations(_packageManagerModel);
 
-//X                ReloadRepositories();
-//X                _packageManagerOperations.LoadDependencies();
+                ReadAlreadyLoadedDependencies();
+            }
+            
+            EditorApplication.update += WindowUpdate;
+        }
+
+        private void OnDisable()
+        {
+            EditorApplication.update -= WindowUpdate;
+        }
+
+        private void WindowUpdate()
+        {
+            if( _packageManagerModel.State == PackageManagerStates.NotInitialized)
+            {
+                Repaint();
             }
         }
 
         private void OnGUI()
+        {
+            _fullRect = new Rect(0, 0, position.width, position.height);
+
+            string version;
+            if (GitHelpers.GetVersion(out version)==false)
+            {
+                DrawForCanNotFoundGit();
+                return;
+            }
+
+            string repositoriesFilePath = PackageManagerConstants.REPOSITORIES_JSON_FOLDER + PackageManagerConstants.REPOSITORIES_JSON_FILENAME;
+            if (File.Exists(repositoriesFilePath) == false)
+            {
+                DrawForCanNotFoundRepositories();
+                return;
+            }
+
+            string dependenciesFilePath = PackageManagerConstants.DEPENDENCIES_JSON_FOLDER + PackageManagerConstants.DEPENDENCIES_JSON_FILENAME;
+            if (File.Exists(dependenciesFilePath) == false)
+            {
+                DrawForCanNotFoundDependencies();
+                return;
+            }
+
+            if (_packageManagerModel.State == PackageManagerStates.Ready)
+            {
+                DrawForReady();
+            }
+            else
+            {
+                DrawForLoading();
+            }
+        }
+
+        private void DrawForCanNotFoundGit()
+        {
+            EditorGUILayout.BeginVertical();
+                GUILayout.BeginArea(_fullRect);
+                    EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.HelpBox(PackageManagerConstants.ERROR_TEXT_CAN_NOT_FOUND_GIT, MessageType.Warning, true);
+                    EditorGUILayout.EndHorizontal();
+                GUILayout.EndArea();
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawForCanNotFoundRepositories()
+        {
+            EditorGUILayout.BeginVertical();
+                GUILayout.BeginArea(_fullRect);
+                    EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.HelpBox(PackageManagerConstants.ERROR_TEXT_CAN_NOT_FOUND_REPOSITORIES, MessageType.Warning, true);
+                    EditorGUILayout.EndHorizontal();
+                GUILayout.EndArea();
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawForCanNotFoundDependencies()
+        {
+            EditorGUILayout.BeginVertical();
+                GUILayout.BeginArea(_fullRect);
+                    EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.HelpBox(PackageManagerConstants.ERROR_TEXT_CAN_NOT_FOUND_DEPENDENCIES, MessageType.Warning, true);
+                    EditorGUILayout.EndHorizontal();
+                GUILayout.EndArea();
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawForLoading()
+        {
+            EditorGUILayout.BeginVertical();
+                GUILayout.BeginArea(_fullRect);
+                    EditorGUILayout.BeginHorizontal();
+                        int frame = DateTime.Now.Second % 4;
+                        GUI.Label(_fullRect, _loadingTextFrames[frame], _loadingStyle);
+                    EditorGUILayout.EndHorizontal();
+                GUILayout.EndArea();
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawForReady()
         {
             _toolBarRect       = new Rect(0,                0,                    position.width,                  TOOLBAR_PANEL_HEIGHT);
             _packageListRect   = new Rect(0,                TOOLBAR_PANEL_HEIGHT, LIST_PANEL_WIDTH,                position.height-TOOLBAR_PANEL_HEIGHT);
             _packageDetailRect = new Rect(LIST_PANEL_WIDTH, TOOLBAR_PANEL_HEIGHT, position.width-LIST_PANEL_WIDTH, position.height-TOOLBAR_PANEL_HEIGHT);
 
             GUI.Box(_packageListRect, _packageListBackgroundTexture);
-
             EditorGUILayout.BeginVertical();
                 DrawToolBar();
-
                 EditorGUILayout.BeginHorizontal();
                     DrawPackageList();
                     DrawPackageDetail();
@@ -118,39 +221,6 @@ namespace Com.Bit34games.PackageManager.Unity
 
         private void DrawToolBar()
         {
-            string version;
-            if (GitHelpers.GetVersion(out version)==false)
-            {
-                GUILayout.BeginArea(_toolBarRect);
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.HelpBox(CAN_NOT_FOUND_GIT_TEXT, MessageType.Warning, true);
-                EditorGUILayout.EndHorizontal();
-                GUILayout.EndArea();
-                return;
-            }
-
-            string repositoriesFilePath = PackageManagerConstants.REPOSITORIES_JSON_FOLDER + PackageManagerConstants.REPOSITORIES_JSON_FILENAME;
-            if (File.Exists(repositoriesFilePath) == false)
-            {
-                GUILayout.BeginArea(_toolBarRect);
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.HelpBox(CAN_NOT_FOUND_REPOSITORIES_TEXT, MessageType.Warning, true);
-                EditorGUILayout.EndHorizontal();
-                GUILayout.EndArea();
-                return;
-            }
-
-            string dependenciesFilePath = PackageManagerConstants.DEPENDENCIES_JSON_FOLDER + PackageManagerConstants.DEPENDENCIES_JSON_FILENAME;
-            if (File.Exists(dependenciesFilePath) == false)
-            {
-                GUILayout.BeginArea(_toolBarRect);
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.HelpBox(CAN_NOT_FOUND_DEPENDENCIES_TEXT, MessageType.Warning, true);
-                EditorGUILayout.EndHorizontal();
-                GUILayout.EndArea();
-                return;
-            }
-
             GUILayout.BeginArea(_toolBarRect);
             EditorGUILayout.BeginHorizontal();
             
@@ -165,17 +235,7 @@ namespace Com.Bit34games.PackageManager.Unity
                 }
                 else
                 {
-                    string scenePath = activeScene.path;
-                    Scene  tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
-
-                    ReloadRepositories();
-                    _packageManagerOperations.LoadDependencies();
-//                    EditorUtility.RequestScriptReload();
-
-                    if (string.IsNullOrEmpty(scenePath) == false)
-                    {
-                        EditorSceneManager.OpenScene(scenePath);
-                    }
+                    ReloadDependencies();
                     
                     GUIUtility.ExitGUI();
                 }
@@ -230,37 +290,73 @@ namespace Com.Bit34games.PackageManager.Unity
             {
                 RepositoryPackageVO package = _packageManagerModel.GetPackage(_packageListSelection);
 
-                GUILayout.Label(package.name, EditorStyles.boldLabel);
+
+                EditorGUILayout.BeginHorizontal();
+                    GUILayout.Label("Package: ", _packageDetailHeaderStyle, GUILayout.Width(80));
+                    GUILayout.Label(package.name, _packageDetailTextStyle);
+                    GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
                 GUILayout.Space(16);
 
-                GUILayout.Label("All versions :", EditorStyles.label);
-                for (int i = 0; i < package.VersionCount; i++)
+
+                if (_packageManagerModel.IsPackageVersionsUpdating(package.name))
                 {
-                    SemanticVersionVO packageVersion = package.GetVersion(i);
-                    GUILayout.Label(" - "+ packageVersion.ToString(), EditorStyles.label);
+                    GUILayout.Label("Available versions :", _packageDetailHeaderStyle);
+                    GUILayout.Label("Updating, please wait...", _packageDetailTextStyle);
                 }
+                else
+                {
+                    EditorGUILayout.BeginHorizontal(GUILayout.Width(200));
+                        GUILayout.Label("Available versions :", _packageDetailHeaderStyle);
+                        if (GUILayout.Button("Update", new GUILayoutOption[]{GUILayout.Height(16), GUILayout.Width(100)}))
+                        {
+                            ReloadPackageVersions(package.name);
+                            Repaint();
+                        }
+                    EditorGUILayout.EndHorizontal();
+                    if (package.VersionCount == 0)
+                    {
+                        GUILayout.Label(" Not loaded", _packageDetailTextStyle);
+                    }
+                    else
+                    {
+                        for (int i = 0; i < package.VersionCount; i++)
+                        {
+                            SemanticVersionVO packageVersion = package.GetVersion(i);
+                            GUILayout.Label(" - " + packageVersion.ToString(), _packageDetailTextStyle);
+                        }
+                    }
+                }
+
                 GUILayout.Space(16);
 
                 if (_packageManagerModel.HasDependency(package.name))
                 {
                     SemanticVersionVO packageVersion = _packageManagerModel.GetDependencyVersion(package.name);
-                    PackageFileVO     packageFile    = _packageManagerOperations.LoadPackageJson(package, packageVersion);
+                    PackageFileVO     packageFile    = PackageManagerHelpers.LoadPackageJson(package, packageVersion);
 
-                    GUILayout.Label("[Installed Version:" + packageVersion.ToString() + "]", EditorStyles.boldLabel);
+                    EditorGUILayout.BeginHorizontal();
+                        GUILayout.Label("Version:", _packageDetailHeaderStyle, GUILayout.Width(80));
+                        GUILayout.Label(packageVersion.ToString(), _packageDetailTextStyle);
+                    EditorGUILayout.EndHorizontal();
+
                     GUILayout.Space(16);
-                    GUILayout.Label(packageFile.displayName, EditorStyles.boldLabel);
+
+                    GUILayout.Label(packageFile.displayName, _packageDetailHeaderStyle);
+
                     GUILayout.Space(16);
-                    GUILayout.Label("Description :", EditorStyles.label);
-                    GUILayout.Label(packageFile.description, EditorStyles.wordWrappedLabel);
+
+                    GUILayout.Label(packageFile.description, _packageDetailTextStyle);
+
                     GUILayout.Space(16);
 
                     if (packageFile.dependencies != null && packageFile.dependencies.Count > 0)
                     {
-                        GUILayout.Label("Dependencies :", EditorStyles.label);
+                        GUILayout.Label("Dependencies :", _packageDetailHeaderStyle);
                         foreach (string dependencyName in packageFile.dependencies.Keys)
                         {
                             SemanticVersionVO dependencyVersion = SemanticVersionHelpers.ParseVersionFromTag(packageFile.dependencies[dependencyName]);
-                            GUILayout.Label(" - "+ dependencyName + "@" + dependencyVersion, EditorStyles.label);
+                            GUILayout.Label(" - "+ dependencyName + "@" + dependencyVersion, _packageDetailTextStyle);
                         }
                         GUILayout.Space(16);
                     }
@@ -269,21 +365,61 @@ namespace Com.Bit34games.PackageManager.Unity
             GUILayout.EndArea();
         }
 
-        private void ReloadRepositories()
+        private void ReadAlreadyLoadedDependencies()
         {
-//            ReloadRepositoriesProgress(0);
-
-            _packageManagerModel.Clear();
-            _packageManagerOperations.LoadRepositories(ReloadRepositoriesProgress);
-
-//            EditorUtility.ClearProgressBar();
+            Task task = Task.Run(() => 
+            {
+                _packageManagerModel.Clear();
+                _packageManagerOperations.LoadRepositories();
+                _packageManagerOperations.GetClonedDependencies();
+                _packageManagerModel.SetAsReady();
+                Repaint();
+            });
         }
 
-        private void ReloadRepositoriesProgress(float progress)
+        private void ReloadDependencies()
         {
-//            EditorUtility.DisplayProgressBar("Reloading repositories", "Just a sec...", progress);
+            Scene  activeScene     = EditorSceneManager.GetActiveScene();
+            string activeScenePath = activeScene.path;
+            Scene  tempScene       = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
+
+            Task task = Task.Run(() => 
+            {
+                _packageManagerModel.SetAsReloading();
+                Repaint();
+
+                _packageManagerModel.Clear();
+                _packageManagerOperations.LoadRepositories();
+                _packageManagerOperations.CloneDependencies();
+//                EditorUtility.RequestScriptReload();
+
+                if (string.IsNullOrEmpty(activeScenePath) == false)
+                {
+                    EditorSceneManager.OpenScene(activeScenePath);
+                }
+
+                _packageManagerModel.SetAsReady();
+                Repaint();
+            });
         }
 
+        private void ReloadPackageVersions(string packageName)
+        {
+            RepositoryPackageVO package = _packageManagerModel.GetPackageByName(packageName);
+            
+            Task task = Task.Run(() => 
+            {
+                _packageManagerModel.PackageVersionsReloadStarted(packageName);
+                List<string>        tags     = GitHelpers.GetRemoteTags(package.url);
+                SemanticVersionVO[] versions = SemanticVersionHelpers.ParseVersionArray(tags.ToArray());
+                _packageManagerModel.PackageVersionsReloadCompleted(packageName, versions);
+
+                if (_packageListSelection != -1 &&
+                    _packageManagerModel.GetPackage(_packageListSelection).name == packageName)
+                {
+                    Repaint();
+                }
+            });
+        }
     }
-
 }
