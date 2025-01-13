@@ -255,10 +255,8 @@ namespace Com.Bit34games.PackageManager.Unity
 
             for (int i = 0; i < _packageManagerModel.PackageCount; i++)
             {
-                RepositoryPackageVO package = _packageManagerModel.GetPackage(i);
-
                 EditorGUILayout.BeginHorizontal();
-                if(DrawPackageListItem(package))
+                if(DrawPackageListItem(_packageManagerModel.GetPackageName(i)))
                 {
                     _packageListSelection = i;
                 }
@@ -268,9 +266,9 @@ namespace Com.Bit34games.PackageManager.Unity
             GUILayout.EndArea();
         }
 
-        private bool DrawPackageListItem(RepositoryPackageVO package)
+        private bool DrawPackageListItem(string packageName)
         {
-            if (_packageManagerModel.HasDependency(package.name))
+            if (_packageManagerModel.HasDependency(packageName))
             {
                 GUILayout.Box(_loadedIconTexture, GUILayout.Width(16), GUILayout.Height(16));
             }
@@ -279,7 +277,7 @@ namespace Com.Bit34games.PackageManager.Unity
                 GUILayout.Box(_notloadedIconTexture, GUILayout.Width(16), GUILayout.Height(16));
             }
             
-            return GUILayout.Button(new GUIContent(package.name));
+            return GUILayout.Button(new GUIContent(packageName));
         }
 
         private void DrawPackageDetail()
@@ -288,18 +286,31 @@ namespace Com.Bit34games.PackageManager.Unity
 
             if (_packageListSelection != -1)
             {
-                RepositoryPackageVO package = _packageManagerModel.GetPackage(_packageListSelection);
-
+                string packageName         = _packageManagerModel.GetPackageName(_packageListSelection);
+                int    packageVersionCount = _packageManagerModel.GetPackageVersionCount(_packageListSelection);
 
                 EditorGUILayout.BeginHorizontal();
-                    GUILayout.Label("Package: ", _packageDetailHeaderStyle, GUILayout.Width(80));
-                    GUILayout.Label(package.name, _packageDetailTextStyle);
+                    GUILayout.Label("Package: ", _packageDetailHeaderStyle, GUILayout.Width(60));
+                    GUILayout.Label(packageName, _packageDetailTextStyle);
                     GUILayout.FlexibleSpace();
                 EditorGUILayout.EndHorizontal();
+
                 GUILayout.Space(16);
 
+                SemanticVersionVO packageVersion = null;
+                if (_packageManagerModel.HasDependency(packageName))
+                {
+                    packageVersion = _packageManagerModel.GetDependencyVersion(packageName);
+                    
+                    EditorGUILayout.BeginHorizontal();
+                        GUILayout.Label("Version:", _packageDetailHeaderStyle, GUILayout.Width(60));
+                        GUILayout.Label(packageVersion.ToString(), _packageDetailTextStyle);
+                    EditorGUILayout.EndHorizontal();
 
-                if (_packageManagerModel.IsPackageVersionsUpdating(package.name))
+                    GUILayout.Space(16);
+                }
+
+                if (_packageManagerModel.IsPackageVersionsUpdating(packageName))
                 {
                     GUILayout.Label("Available versions :", _packageDetailHeaderStyle);
                     GUILayout.Label("Updating, please wait...", _packageDetailTextStyle);
@@ -310,37 +321,28 @@ namespace Com.Bit34games.PackageManager.Unity
                         GUILayout.Label("Available versions :", _packageDetailHeaderStyle);
                         if (GUILayout.Button("Update", new GUILayoutOption[]{GUILayout.Height(16), GUILayout.Width(100)}))
                         {
-                            ReloadPackageVersions(package.name);
+                            ReloadPackageVersions(packageName);
                             Repaint();
                         }
                     EditorGUILayout.EndHorizontal();
-                    if (package.VersionCount == 0)
+                    if (packageVersionCount == 0)
                     {
                         GUILayout.Label(" Not loaded", _packageDetailTextStyle);
                     }
                     else
                     {
-                        for (int i = 0; i < package.VersionCount; i++)
+                        for (int i = 0; i < packageVersionCount; i++)
                         {
-                            SemanticVersionVO packageVersion = package.GetVersion(i);
-                            GUILayout.Label(" - " + packageVersion.ToString(), _packageDetailTextStyle);
+                            GUILayout.Label(" - " + _packageManagerModel.GetPackageVersion( _packageListSelection, i), _packageDetailTextStyle);
                         }
                     }
                 }
 
                 GUILayout.Space(16);
 
-                if (_packageManagerModel.HasDependency(package.name))
+                if (_packageManagerModel.HasDependency(packageName))
                 {
-                    SemanticVersionVO packageVersion = _packageManagerModel.GetDependencyVersion(package.name);
-                    PackageFileVO     packageFile    = PackageManagerHelpers.LoadPackageJson(package, packageVersion);
-
-                    EditorGUILayout.BeginHorizontal();
-                        GUILayout.Label("Version:", _packageDetailHeaderStyle, GUILayout.Width(80));
-                        GUILayout.Label(packageVersion.ToString(), _packageDetailTextStyle);
-                    EditorGUILayout.EndHorizontal();
-
-                    GUILayout.Space(16);
+                    PackageFileVO packageFile = PackageManagerHelpers.LoadPackageJson(packageName, packageVersion);
 
                     GUILayout.Label(packageFile.displayName, _packageDetailHeaderStyle);
 
@@ -405,17 +407,18 @@ namespace Com.Bit34games.PackageManager.Unity
 
         private void ReloadPackageVersions(string packageName)
         {
-            RepositoryPackageVO package = _packageManagerModel.GetPackageByName(packageName);
+            int    packageIndex = _packageManagerModel.FindPackageIndex(packageName);
+            string packageURL   = _packageManagerModel.GetPackageURL(packageIndex);
             
             Task task = Task.Run(() => 
             {
                 _packageManagerModel.PackageVersionsReloadStarted(packageName);
-                List<string>        tags     = GitHelpers.GetRemoteTags(package.url);
+                List<string>        tags     = GitHelpers.GetRemoteTags(packageURL);
                 SemanticVersionVO[] versions = SemanticVersionHelpers.ParseVersionArray(tags.ToArray());
                 _packageManagerModel.PackageVersionsReloadCompleted(packageName, versions);
 
                 if (_packageListSelection != -1 &&
-                    _packageManagerModel.GetPackage(_packageListSelection).name == packageName)
+                    _packageManagerModel.GetPackageName(_packageListSelection) == packageName)
                 {
                     Repaint();
                 }

@@ -1,7 +1,7 @@
-
 using System.Collections.Generic;
 using Com.Bit34games.PackageManager.Constants;
 using Com.Bit34games.PackageManager.VOs;
+
 
 namespace Com.Bit34games.PackageManager.Models
 {
@@ -51,16 +51,29 @@ namespace Com.Bit34games.PackageManager.Models
             _packagesByName.Add(name, package);
         }
 
-        public RepositoryPackageVO GetPackage(int index)
+        public int FindPackageIndex(string packageName)
         {
-            return _packages[index];
+            return _packages.FindIndex((RepositoryPackageVO package)=>{ return package.name == packageName; });
         }
 
-        public RepositoryPackageVO GetPackageByName(string name)
+        public string GetPackageName(int packageIndex)
         {
-            RepositoryPackageVO package = null;
-            _packagesByName.TryGetValue(name, out package);
-            return package;
+            return _packages[packageIndex].name;
+        }
+
+        public string GetPackageURL(int packageIndex)
+        {
+            return _packages[packageIndex].url;
+        }
+
+        public int GetPackageVersionCount(int packageIndex)
+        {
+            return _packages[packageIndex].VersionCount;
+        }
+
+        public SemanticVersionVO GetPackageVersion(int packageIndex, int versionIndex)
+        {
+            return _packages[packageIndex].GetVersion(versionIndex);
         }
 
         public void AddDependency(string name, SemanticVersionVO version) 
@@ -94,12 +107,6 @@ namespace Com.Bit34games.PackageManager.Models
         {
             return _packagesReloadingVersion.Contains(packageName);
         }
-/*
-        public IEnumerator<string> GetDependencyEnumerator()
-        {
-            return _dependencies.Keys.GetEnumerator();
-        }
-*/
 
     }
 }

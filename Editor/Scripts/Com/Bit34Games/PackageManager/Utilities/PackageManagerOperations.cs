@@ -63,7 +63,13 @@ namespace Com.Bit34games.PackageManager.Utilities
 
             foreach(string folderName in loadedDependencies.Keys)
             {
-                _packageManagerModel.AddDependency(loadedDependencies[folderName].name, loadedDependencies[folderName].version);
+                DependencyPackageVO dependencyPackage = loadedDependencies[folderName];
+                _packageManagerModel.AddDependency(dependencyPackage.name, dependencyPackage.version);
+                
+                string              packagePath = PackageManagerHelpers.GetPackagePath(dependencyPackage.name, dependencyPackage.version);
+                List<string>        tags        = GitHelpers.GetTags(packagePath);
+                SemanticVersionVO[] versions    = SemanticVersionHelpers.ParseVersionArray(tags.ToArray());
+                _packageManagerModel.PackageVersionsReloadCompleted(dependencyPackage.name, versions);
             }
         }
 
@@ -92,21 +98,21 @@ namespace Com.Bit34games.PackageManager.Utilities
                 IEnumerator<string> enumerator = unresolvedDependencies.Keys.GetEnumerator();
                 enumerator.MoveNext();
 
-                string              packageName    = enumerator.Current;
-                SemanticVersionVO   packageVersion = unresolvedDependencies[packageName];
-                RepositoryPackageVO package        = _packageManagerModel.GetPackageByName(packageName);
-                string              packagePath    = PackageManagerHelpers.GetPackagePath(packageName, packageVersion);
+                string            packageName    = enumerator.Current;
+                SemanticVersionVO packageVersion = unresolvedDependencies[packageName];
+                int               packageIndex   = _packageManagerModel.FindPackageIndex(packageName);
+                string            packageURL     = _packageManagerModel.GetPackageURL(packageIndex);
+                string            packagePath    = PackageManagerHelpers.GetPackagePath(packageName, packageVersion);
 
                 unresolvedDependencies.Remove(packageName);
                 _packageManagerModel.AddDependency(packageName, packageVersion);
 
                 if (loadedDependencies.ContainsKey(packagePath) == false)
                 {
-                    PackageManagerHelpers.ClonePackage(package, packageVersion);
+                    PackageManagerHelpers.ClonePackage(packageName, packageURL, packageVersion);
 
                     List<string>        tags     = GitHelpers.GetTags(packagePath);
                     SemanticVersionVO[] versions = SemanticVersionHelpers.ParseVersionArray(tags.ToArray());
-                    UnityEngine.Debug.Log(tags[0]);
                     _packageManagerModel.PackageVersionsReloadCompleted(packageName, versions);
                 }
                 else
@@ -114,7 +120,7 @@ namespace Com.Bit34games.PackageManager.Utilities
                     loadedDependencies.Remove(packagePath);
                 }
 
-                PackageFileVO packageFile = PackageManagerHelpers.LoadPackageJson(package, packageVersion);
+                PackageFileVO packageFile = PackageManagerHelpers.LoadPackageJson(packageName, packageVersion);
                 
                 if (packageFile.dependencies != null && packageFile.dependencies.Count > 0)
                 {

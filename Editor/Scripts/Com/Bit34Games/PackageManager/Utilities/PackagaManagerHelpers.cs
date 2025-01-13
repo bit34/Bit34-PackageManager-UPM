@@ -16,10 +16,10 @@ namespace Com.Bit34games.PackageManager.Utilities
             return PackageManagerConstants.PACKAGE_FOLDER + packageName + "@" + packageVersion;
         }
 
-        public static void ClonePackage(RepositoryPackageVO package, SemanticVersionVO packageVersion)
+        public static void ClonePackage(string packageName, string packageURL, SemanticVersionVO packageVersion)
         {
-            string packagePath = GetPackagePath(package.name, packageVersion);
-            GitHelpers.Clone(packagePath, package.url);
+            string packagePath = GetPackagePath(packageName, packageVersion);
+            GitHelpers.Clone(packagePath, packageURL);
             GitHelpers.CheckoutBranch(packagePath, PackageManagerConstants.VERSION_BRANCH_PREFIX + packageVersion);
             AssetDatabase.Refresh();
         }
@@ -31,9 +31,9 @@ namespace Com.Bit34games.PackageManager.Utilities
             StorageHelpers.DeleteFile(packagePath + ".meta");
         }
 
-        public static PackageFileVO LoadPackageJson(RepositoryPackageVO package, SemanticVersionVO packageVersion)
+        public static PackageFileVO LoadPackageJson(string packageName, SemanticVersionVO packageVersion)
         {
-            string        packagePath = GetPackagePath(package.name, packageVersion);
+            string        packagePath = GetPackagePath(packageName, packageVersion);
             string        fileContent = StorageHelpers.LoadTextFile(packagePath + Path.DirectorySeparatorChar + PackageManagerConstants.PACKAGE_JSON_FILENAME);
             PackageFileVO file        = JsonConvert.DeserializeObject<PackageFileVO>(fileContent);
             return file;

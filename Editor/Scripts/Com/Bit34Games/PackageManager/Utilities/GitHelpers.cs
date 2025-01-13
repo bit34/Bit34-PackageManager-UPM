@@ -106,10 +106,16 @@ namespace Com.Bit34games.PackageManager.Utilities
             process.StartInfo.CreateNoWindow = true;
             process.StartInfo.FileName  = "git";
             process.StartInfo.Arguments = " -C "  + directory + " tag";
-            process.OutputDataReceived += (object sender, DataReceivedEventArgs e)=>{ tags.Add(e.Data); };
+            process.OutputDataReceived += (object sender, DataReceivedEventArgs e)=>{ if (string.IsNullOrEmpty(e.Data)==false){tags.Add(e.Data);} };
             process.Start();
             process.BeginOutputReadLine();
             process.WaitForExit();
+
+            for (int j = 0; j < tags.Count; j++)
+            {
+                int separatorIndex = tags[j].LastIndexOf('/');
+                tags[j] = tags[j].Substring(separatorIndex+1);
+            }
 
             return tags;
         }
