@@ -194,8 +194,6 @@ namespace Com.Bit34games.PackageManager.Utilities
                 Directory.CreateDirectory(PackageManagerConstants.PACKAGE_FOLDER);
             }
 
-            List<string> oldInstallsToRemove = new List<string>();
-
             //  Iterate dependencies from file
             while (dependencies.Count>0)
             {
@@ -231,63 +229,64 @@ namespace Com.Bit34games.PackageManager.Utilities
                 //  Add dependecy
                 else
                 {
-                    if (installedVersion != null && installedVersion != dependency.version)
-                    {
-                        oldInstallsToRemove.Add(PackageManagerHelpers.GetPackagePath(dependency.name, installedVersion));
-                        _packageManagerModel.SetInstalledVersion(dependency.name, null);
-                    }
+                    string packagePath = PackageManagerHelpers.GetPackagePath(dependency.name, dependency.version);
+                    string packageURL  = _packageManagerModel.GetPackageURL(packageIndex);
 
-                    if (installedVersion != dependency.version)
+                    if (installedVersion != null)
                     {
+                        if (installedVersion != dependency.version)
+                        {
+                            PackageManagerHelpers.ChangePackageVersion(dependency.name, installedVersion, dependency.version);
+                            _packageManagerModel.AddDependencyParent(dependency.name, dependency.parent);
+                            installedVersion = dependency.version;
+                            _packageManagerModel.SetInstalledVersion(dependency.name, installedVersion);
+                        }
+                    }
+                    else
+                    {
+                        PackageManagerHelpers.ClonePackage(dependency.name, packageURL, dependency.version);
                         _packageManagerModel.AddDependency(dependency.name, DependencyStates.Installed, dependency.version, dependency.parent);
+                        installedVersion = dependency.version;
                         _packageManagerModel.SetInstalledVersion(dependency.name, dependency.version);
 
-                        string packagePath = PackageManagerHelpers.GetPackagePath(dependency.name, dependency.version);
-                        string packageURL  = _packageManagerModel.GetPackageURL(packageIndex);
-                        PackageManagerHelpers.ClonePackage(dependency.name, packageURL, dependency.version);
+                    }
 
-                        List<string>        tags     = GitHelpers.GetTags(packagePath);
-                        SemanticVersionVO[] versions = SemanticVersionHelpers.ParseVersionArray(tags.ToArray());
-                        _packageManagerModel.PackageVersionsReloadCompleted(dependency.name, versions);
+                    List<string>        tags     = GitHelpers.GetTags(packagePath);
+                    SemanticVersionVO[] versions = SemanticVersionHelpers.ParseVersionArray(tags.ToArray());
+                    _packageManagerModel.PackageVersionsReloadCompleted(dependency.name, versions);
 
-                        PackageFileVO dependencyPackageFile = PackageManagerHelpers.LoadPackageJson(dependency.name, dependency.version);
-                        if (dependencyPackageFile.dependencies != null && dependencyPackageFile.dependencies.Count > 0)
+                    PackageFileVO dependencyPackageFile = PackageManagerHelpers.LoadPackageJson(dependency.name, dependency.version);
+                    if (dependencyPackageFile.dependencies != null && dependencyPackageFile.dependencies.Count > 0)
+                    {
+                        foreach (string subDependencyName in dependencyPackageFile.dependencies.Keys)
                         {
-                            foreach (string subDependencyName in dependencyPackageFile.dependencies.Keys)
+                            string            subDependencyVersionText = dependencyPackageFile.dependencies[subDependencyName];
+                            SemanticVersionVO subDependencyVersion     = SemanticVersionHelpers.ParseVersionFromTag(subDependencyVersionText);
+                            if (_packageManagerModel.FindPackageIndex(subDependencyName) == -1)
                             {
-                                string            subDependencyVersionText = dependencyPackageFile.dependencies[subDependencyName];
-                                SemanticVersionVO subDependencyVersion     = SemanticVersionHelpers.ParseVersionFromTag(subDependencyVersionText);
-                                if (_packageManagerModel.FindPackageIndex(subDependencyName) == -1)
-                                {
-                                    _packageManagerModel.SetError(new PackageManagerErrorForDependencyNotInRepositoryVO(subDependencyName));
-                                    return false;
-                                }
-                                else
-                                if (_packageManagerModel.GetDependencyState(subDependencyName) == DependencyStates.NotInUse)
-                                {
-                                    dependencies.Add(new PackageReferenceVO(subDependencyName, subDependencyVersion, dependency.name));
-                                }
-                                else
-                                if (subDependencyVersion != _packageManagerModel.GetDependencyVersion(subDependencyName))
-                                {
-                                    _packageManagerModel.SetError(new PackageManagerErrorForDependencyAddedWithDifferentVersionVO(subDependencyName, 
-                                                                                                                                  _packageManagerModel.GetDependencyVersion(subDependencyName),
-                                                                                                                                  _packageManagerModel.GetDependencyParents(subDependencyName),
-                                                                                                                                  subDependencyVersion,
-                                                                                                                                  dependency.name));
-                                    return false;
-                                }
+                                _packageManagerModel.SetError(new PackageManagerErrorForDependencyNotInRepositoryVO(subDependencyName));
+                                return false;
+                            }
+                            else
+                            if (_packageManagerModel.GetDependencyState(subDependencyName) == DependencyStates.NotInUse)
+                            {
+                                dependencies.Add(new PackageReferenceVO(subDependencyName, subDependencyVersion, dependency.name));
+                            }
+                            else
+                            if (subDependencyVersion != _packageManagerModel.GetDependencyVersion(subDependencyName))
+                            {
+                                _packageManagerModel.SetError(new PackageManagerErrorForDependencyAddedWithDifferentVersionVO(subDependencyName, 
+                                                                                                                                _packageManagerModel.GetDependencyVersion(subDependencyName),
+                                                                                                                                _packageManagerModel.GetDependencyParents(subDependencyName),
+                                                                                                                                subDependencyVersion,
+                                                                                                                                dependency.name));
+                                return false;
                             }
                         }
                     }
                 }
             }
 
-            for (int i = 0; i < oldInstallsToRemove.Count; i++)
-            {
-                PackageManagerHelpers.DeletePackage(oldInstallsToRemove[i]);
-            }
-            
             RemoveNotNeededPackages();
             return true;
         }

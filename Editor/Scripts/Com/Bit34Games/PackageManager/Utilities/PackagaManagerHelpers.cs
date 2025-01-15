@@ -26,6 +26,16 @@ namespace Com.Bit34games.PackageManager.Utilities
             AssetDatabase.Refresh();
         }
 
+        public static void ChangePackageVersion(string packageName, SemanticVersionVO packageVersion, SemanticVersionVO newPackageVersion)
+        {
+            string packagePath = GetPackagePath(packageName, packageVersion);
+            GitHelpers.Fetch(packagePath);
+            GitHelpers.CheckoutBranch(packagePath, PackageManagerConstants.VERSION_BRANCH_PREFIX + newPackageVersion);
+            string newPackagePath = GetPackagePath(packageName, newPackageVersion);
+            StorageHelpers.RenameDirectory(packagePath, newPackagePath);
+            AssetDatabase.Refresh();
+        }
+
         public static void DeletePackage(string packagePath)
         {
             StorageHelpers.DeleteDirectory(packagePath);

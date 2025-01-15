@@ -11,10 +11,10 @@ namespace Com.Bit34games.PackageManager.Utilities
             File.Delete(filepath);
         }
         
-        public static void DeleteDirectory(string target_dir)
+        public static void DeleteDirectory(string path)
         {
-            string[] files = Directory.GetFiles(target_dir);
-            string[] dirs = Directory.GetDirectories(target_dir);
+            string[] files = Directory.GetFiles(path);
+            string[] dirs = Directory.GetDirectories(path);
 
             foreach (string file in files)
             {
@@ -27,7 +27,12 @@ namespace Com.Bit34games.PackageManager.Utilities
                 DeleteDirectory(dir);
             }
 
-            Directory.Delete(target_dir, false);
+            Directory.Delete(path, false);
+        }
+
+        public static void RenameDirectory(string path, string newPath)
+        {
+            Directory.Move(path, newPath);
         }
 
         public static string LoadTextFile(string filePath)
