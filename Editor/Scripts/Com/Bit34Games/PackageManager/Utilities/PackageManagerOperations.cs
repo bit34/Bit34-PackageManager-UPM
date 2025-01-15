@@ -10,6 +10,7 @@ using Newtonsoft.Json;  //   "com.unity.nuget.newtonsoft-json": "2.0.0",
 
 namespace Com.Bit34games.PackageManager.Utilities
 {
+
     internal class PackageManagerOperations
     {
         //  MEMBERS
@@ -25,23 +26,272 @@ namespace Com.Bit34games.PackageManager.Utilities
 
 
         //  METHODS
-        public bool LoadRepositories()
+        public bool CheckPrerequirements()
         {
-            string fileContent = StorageHelpers.LoadTextFile(PackageManagerConstants.REPOSITORIES_JSON_PATH);
-            if (string.IsNullOrEmpty(fileContent))
+            string version;
+            if (GitHelpers.GetVersion(out version)==false)
             {
-                UnityEngine.Debug.LogWarning(PackageManagerConstants.ERROR_TEXT_CAN_NOT_FOUND_REPOSITORIES);
+                _packageManagerModel.SetError(new PackageManagerErrorVO(PackageManagerErrors.GitNotFound));
                 return false;
             }
 
-            RepositoryFileVO file = JsonConvert.DeserializeObject<RepositoryFileVO>(fileContent);
-
-            if (file == null || file.packages == null)
+            string repositoriesFilePath = PackageManagerConstants.REPOSITORIES_JSON_FOLDER + PackageManagerConstants.REPOSITORIES_JSON_FILENAME;
+            if (File.Exists(repositoriesFilePath) == false)
             {
-                UnityEngine.Debug.LogWarning("Bit34 Package Manager : Can not parse repository file");
+                _packageManagerModel.SetError(new PackageManagerErrorVO(PackageManagerErrors.RepositoriesFileNotFound));
                 return false;
             }
             
+            string dependenciesFilePath = PackageManagerConstants.DEPENDENCIES_JSON_FOLDER + PackageManagerConstants.DEPENDENCIES_JSON_FILENAME;
+            if (File.Exists(dependenciesFilePath) == false)
+            {
+                _packageManagerModel.SetError(new PackageManagerErrorVO(PackageManagerErrors.DependenciesFileNotFound));
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool DetectClonedDependencies()
+        {
+            _packageManagerModel.Clear();
+
+            if (LoadRepositories() == false)
+            {
+                return false;
+            }
+
+            UpdateInstalledVersions();
+
+            //  Load dependencies file
+            string             fileContent = StorageHelpers.LoadTextFile(PackageManagerConstants.DEPENDENCIES_JSON_PATH);
+            DependenciesFileVO file        = JsonConvert.DeserializeObject<DependenciesFileVO>(fileContent);
+            if (file == null || file.dependencies == null)
+            {
+                _packageManagerModel.SetError(new PackageManagerErrorVO(PackageManagerErrors.DependenciesFileBadFormat));
+                return false;
+            }
+
+            //  Read dependencies file content
+            List<PackageReferenceVO> dependencies = PackageManagerHelpers.ReadDependenciesJson(file);
+
+            //  Iterate dependencies from file
+            while (dependencies.Count > 0)
+            {
+                PackageReferenceVO dependency = dependencies[0];
+                dependencies.RemoveAt(0);
+                
+                //  Dependency does not have a repository data
+                int packageIndex = _packageManagerModel.FindPackageIndex(dependency.name);
+                if (packageIndex == -1)
+                {
+                    _packageManagerModel.SetError(new PackageManagerErrorVO(PackageManagerErrors.DependencyDoesNotHaveRepository));
+                    return false;
+                }
+
+                //  Dependency already added
+                SemanticVersionVO existingVersion  = _packageManagerModel.GetDependencyVersion(dependency.name);
+                SemanticVersionVO installedVersion = _packageManagerModel.GetInstalledVersion(dependency.name);
+                if (existingVersion != null)
+                {
+                    //  Added dependency has a different version
+                    if (existingVersion != dependency.version)
+                    {
+                        _packageManagerModel.SetError(new PackageManagerErrorForDependencyAddedWithDifferentVersionVO(dependency.name, 
+                                                                                                                      _packageManagerModel.GetDependencyVersion(dependency.name),
+                                                                                                                      _packageManagerModel.GetDependencyParents(dependency.name),
+                                                                                                                      dependency.version,
+                                                                                                                      dependency.parent));
+                        return false;
+                    }
+
+                    _packageManagerModel.AddDependencyParent(dependency.name, dependency.parent);
+                }
+                //  Add dependecy
+                else
+                {
+                    if(installedVersion == null)
+                    {
+                        _packageManagerModel.AddDependency(dependency.name, DependencyStates.NotInstalled, dependency.version, dependency.parent);
+                    }
+                    else
+                    if(installedVersion == dependency.version)
+                    {
+                        _packageManagerModel.AddDependency(dependency.name, DependencyStates.Installed, dependency.version, dependency.parent);
+                    }
+                    else
+                    {
+                        _packageManagerModel.AddDependency(dependency.name, DependencyStates.WrongVersion, dependency.version, dependency.parent);
+                    }
+                }
+
+                //  If dependency is loaded, get its dependencies
+                if(installedVersion != null && installedVersion == dependency.version)
+                {
+                    PackageFileVO dependencyPackageFile = PackageManagerHelpers.LoadPackageJson(dependency.name, dependency.version);
+                    
+                    if (dependencyPackageFile.dependencies != null && dependencyPackageFile.dependencies.Count > 0)
+                    {
+                        foreach (string subDependencyName in dependencyPackageFile.dependencies.Keys)
+                        {
+                            string            subDependencyVersionText = dependencyPackageFile.dependencies[subDependencyName];
+                            SemanticVersionVO subDependencyVersion     = SemanticVersionHelpers.ParseVersionFromTag(subDependencyVersionText);
+                            if (_packageManagerModel.GetDependencyState(subDependencyName) == DependencyStates.NotInUse)
+                            {
+                                dependencies.Add(new PackageReferenceVO(subDependencyName, subDependencyVersion, dependency.name));
+                            }
+                            else
+                            if (subDependencyVersion != _packageManagerModel.GetDependencyVersion(subDependencyName))
+                            {
+                                _packageManagerModel.SetError(new PackageManagerErrorForDependencyAddedWithDifferentVersionVO(subDependencyName, 
+                                                                                                                              _packageManagerModel.GetDependencyVersion(subDependencyName),
+                                                                                                                              _packageManagerModel.GetDependencyParents(subDependencyName),
+                                                                                                                              subDependencyVersion,
+                                                                                                                              dependency.name));
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            UpdateNotNeededPackages();
+            
+            return true;
+        }
+
+        public bool CloneDependencies()
+        {
+            _packageManagerModel.Clear();
+            
+            if (LoadRepositories() == false)
+            {
+                return false;
+            }
+
+            UpdateInstalledVersions();
+
+            //  Load dependencies file
+            string             fileContent = StorageHelpers.LoadTextFile(PackageManagerConstants.DEPENDENCIES_JSON_PATH);
+            DependenciesFileVO file        = JsonConvert.DeserializeObject<DependenciesFileVO>(fileContent);
+            if (file == null || file.dependencies == null)
+            {
+                _packageManagerModel.SetError(new PackageManagerErrorVO(PackageManagerErrors.DependenciesFileBadFormat));
+                return false;
+            }
+
+            //  Read dependencies file content
+            List<PackageReferenceVO> dependencies = PackageManagerHelpers.ReadDependenciesJson(file);
+
+            if (Directory.Exists(PackageManagerConstants.PACKAGE_FOLDER)==false)
+            {
+                Directory.CreateDirectory(PackageManagerConstants.PACKAGE_FOLDER);
+            }
+
+            List<string> oldInstallsToRemove = new List<string>();
+
+            //  Iterate dependencies from file
+            while (dependencies.Count>0)
+            {
+                PackageReferenceVO dependency = dependencies[0];
+                dependencies.RemoveAt(0);
+                
+                //  Dependency does not have a repository data
+                int packageIndex = _packageManagerModel.FindPackageIndex(dependency.name);
+                if (packageIndex == -1)
+                {
+                    _packageManagerModel.SetError(new PackageManagerErrorVO(PackageManagerErrors.DependencyDoesNotHaveRepository));
+                    return false;
+                }
+
+                //  Dependency already added
+                SemanticVersionVO existingVersion  = _packageManagerModel.GetDependencyVersion(dependency.name);
+                SemanticVersionVO installedVersion = _packageManagerModel.GetInstalledVersion(dependency.name);
+                if (existingVersion != null)
+                {
+                    //  Added dependency has a different version
+                    if (existingVersion != dependency.version)
+                    {
+                        _packageManagerModel.SetError(new PackageManagerErrorForDependencyAddedWithDifferentVersionVO(dependency.name, 
+                                                                                                                      _packageManagerModel.GetDependencyVersion(dependency.name),
+                                                                                                                      _packageManagerModel.GetDependencyParents(dependency.name),
+                                                                                                                      dependency.version,
+                                                                                                                      dependency.parent));
+                        return false;
+                    }
+
+                    _packageManagerModel.AddDependencyParent(dependency.name, dependency.parent);
+                }
+                //  Add dependecy
+                else
+                {
+                    if (installedVersion != null && installedVersion != dependency.version)
+                    {
+                        oldInstallsToRemove.Add(PackageManagerHelpers.GetPackagePath(dependency.name, installedVersion));
+                        _packageManagerModel.SetInstalledVersion(dependency.name, null);
+                    }
+
+                    if (installedVersion != dependency.version)
+                    {
+                        _packageManagerModel.AddDependency(dependency.name, DependencyStates.Installed, dependency.version, dependency.parent);
+                        _packageManagerModel.SetInstalledVersion(dependency.name, dependency.version);
+
+                        string packagePath = PackageManagerHelpers.GetPackagePath(dependency.name, dependency.version);
+                        string packageURL  = _packageManagerModel.GetPackageURL(packageIndex);
+                        PackageManagerHelpers.ClonePackage(dependency.name, packageURL, dependency.version);
+
+                        List<string>        tags     = GitHelpers.GetTags(packagePath);
+                        SemanticVersionVO[] versions = SemanticVersionHelpers.ParseVersionArray(tags.ToArray());
+                        _packageManagerModel.PackageVersionsReloadCompleted(dependency.name, versions);
+
+                        PackageFileVO dependencyPackageFile = PackageManagerHelpers.LoadPackageJson(dependency.name, dependency.version);
+                        if (dependencyPackageFile.dependencies != null && dependencyPackageFile.dependencies.Count > 0)
+                        {
+                            foreach (string subDependencyName in dependencyPackageFile.dependencies.Keys)
+                            {
+                                string            subDependencyVersionText = dependencyPackageFile.dependencies[subDependencyName];
+                                SemanticVersionVO subDependencyVersion     = SemanticVersionHelpers.ParseVersionFromTag(subDependencyVersionText);
+                                if (_packageManagerModel.GetDependencyState(subDependencyName) == DependencyStates.NotInUse)
+                                {
+                                    dependencies.Add(new PackageReferenceVO(subDependencyName, subDependencyVersion, dependency.name));
+                                }
+                                else
+                                if (subDependencyVersion != _packageManagerModel.GetDependencyVersion(subDependencyName))
+                                {
+                                    _packageManagerModel.SetError(new PackageManagerErrorForDependencyAddedWithDifferentVersionVO(subDependencyName, 
+                                                                                                                                  _packageManagerModel.GetDependencyVersion(subDependencyName),
+                                                                                                                                  _packageManagerModel.GetDependencyParents(subDependencyName),
+                                                                                                                                  subDependencyVersion,
+                                                                                                                                  dependency.name));
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < oldInstallsToRemove.Count; i++)
+            {
+                PackageManagerHelpers.DeletePackage(oldInstallsToRemove[i]);
+            }
+            
+            RemoveNotNeededPackages();
+            return true;
+        }
+
+
+        private bool LoadRepositories()
+        {
+            string           fileContent = StorageHelpers.LoadTextFile(PackageManagerConstants.REPOSITORIES_JSON_PATH);
+            RepositoryFileVO file        = JsonConvert.DeserializeObject<RepositoryFileVO>(fileContent);
+            if (file == null || file.packages == null)
+            {
+                _packageManagerModel.SetError(new PackageManagerErrorVO(PackageManagerErrors.RepositoriesFileBadFormat));
+                return false;
+            }
+            
+            //  Read file content
             for (int i=0; i<file.packages.Count; i++)
             {
                 RepositoryPackageFileVO package = file.packages[i];
@@ -52,114 +302,14 @@ namespace Com.Bit34games.PackageManager.Utilities
             return true;
         }
 
-        public void GetClonedDependencies()
+        private void UpdateInstalledVersions()
         {
-            if (Directory.Exists(PackageManagerConstants.PACKAGE_FOLDER)==false)
+            IEnumerator<string> packageNames = _packageManagerModel.GetPackageNameEnumerator();
+            while (packageNames.MoveNext())
             {
-                return;
+                string packageName = packageNames.Current;
+                _packageManagerModel.SetInstalledVersion(packageName, null);
             }
-            
-            Dictionary<string, DependencyPackageVO> loadedDependencies = GetLoadedDependencyList();
-
-            foreach(string folderName in loadedDependencies.Keys)
-            {
-                DependencyPackageVO dependencyPackage = loadedDependencies[folderName];
-                _packageManagerModel.AddDependency(dependencyPackage.name, dependencyPackage.version);
-                
-                string              packagePath = PackageManagerHelpers.GetPackagePath(dependencyPackage.name, dependencyPackage.version);
-                List<string>        tags        = GitHelpers.GetTags(packagePath);
-                SemanticVersionVO[] versions    = SemanticVersionHelpers.ParseVersionArray(tags.ToArray());
-                _packageManagerModel.PackageVersionsReloadCompleted(dependencyPackage.name, versions);
-            }
-        }
-
-        public void CloneDependencies()
-        {
-            if (Directory.Exists(PackageManagerConstants.PACKAGE_FOLDER)==false)
-            {
-                Directory.CreateDirectory(PackageManagerConstants.PACKAGE_FOLDER);
-            }
-
-            //  Load dependencies file
-            string filePath = PackageManagerConstants.DEPENDENCIES_JSON_FOLDER + PackageManagerConstants.DEPENDENCIES_JSON_FILENAME;
-
-            if (File.Exists(filePath) == false)
-            {
-                UnityEngine.Debug.LogWarning("Bit34 Package Manager : No dependencies file");
-                return;
-            }
-            
-            Dictionary<string, DependencyPackageVO> loadedDependencies     = GetLoadedDependencyList();
-            Dictionary<string, SemanticVersionVO>   unresolvedDependencies = GetDependencyList(filePath);
-
-            //  Resolve dependencies
-            while (unresolvedDependencies.Count>0)
-            {
-                IEnumerator<string> enumerator = unresolvedDependencies.Keys.GetEnumerator();
-                enumerator.MoveNext();
-
-                string            packageName    = enumerator.Current;
-                SemanticVersionVO packageVersion = unresolvedDependencies[packageName];
-                int               packageIndex   = _packageManagerModel.FindPackageIndex(packageName);
-                string            packageURL     = _packageManagerModel.GetPackageURL(packageIndex);
-                string            packagePath    = PackageManagerHelpers.GetPackagePath(packageName, packageVersion);
-
-                unresolvedDependencies.Remove(packageName);
-                _packageManagerModel.AddDependency(packageName, packageVersion);
-
-                if (loadedDependencies.ContainsKey(packagePath) == false)
-                {
-                    PackageManagerHelpers.ClonePackage(packageName, packageURL, packageVersion);
-
-                    List<string>        tags     = GitHelpers.GetTags(packagePath);
-                    SemanticVersionVO[] versions = SemanticVersionHelpers.ParseVersionArray(tags.ToArray());
-                    _packageManagerModel.PackageVersionsReloadCompleted(packageName, versions);
-                }
-                else
-                {
-                    loadedDependencies.Remove(packagePath);
-                }
-
-                PackageFileVO packageFile = PackageManagerHelpers.LoadPackageJson(packageName, packageVersion);
-                
-                if (packageFile.dependencies != null && packageFile.dependencies.Count > 0)
-                {
-                    foreach (string dependencyName in packageFile.dependencies.Keys)
-                    {
-                        if (_packageManagerModel.HasDependency(dependencyName) == false &&
-                            unresolvedDependencies.ContainsKey(dependencyName) == false)
-                        {
-                            SemanticVersionVO dependencyVersion = SemanticVersionHelpers.ParseVersionFromTag(packageFile.dependencies[dependencyName]);
-                            unresolvedDependencies.Add(dependencyName, dependencyVersion);
-                        }
-                    }
-                }
-            }
-            
-            foreach (DependencyPackageVO loadedDependency in loadedDependencies.Values)
-            {
-                PackageManagerHelpers.DeletePackage(loadedDependency.name, loadedDependency.version);
-            }
-        }
-
-        private Dictionary<string, SemanticVersionVO> GetDependencyList(string filePath)
-        {
-            Dictionary<string, SemanticVersionVO> dependencies = new Dictionary<string, SemanticVersionVO>();
-
-            string             fileContent = StorageHelpers.LoadTextFile(filePath);
-            DependenciesFileVO file        = JsonConvert.DeserializeObject<DependenciesFileVO>(fileContent);
-
-            foreach (string dependencyName in file.dependencies.Keys)
-            {
-                dependencies.Add(dependencyName, SemanticVersionHelpers.ParseVersion(file.dependencies[dependencyName]));
-            }
-            
-            return dependencies;
-        }
-
-        private Dictionary<string, DependencyPackageVO> GetLoadedDependencyList()
-        {
-            Dictionary<string, DependencyPackageVO> dependencies = new Dictionary<string, DependencyPackageVO>();
 
             string[] packageFolderPaths = Directory.GetDirectories(PackageManagerConstants.PACKAGE_FOLDER);
 
@@ -169,18 +319,53 @@ namespace Com.Bit34games.PackageManager.Utilities
                 int                 startIndex     = Math.Max(0, packagePath.LastIndexOf(Path.DirectorySeparatorChar));
                 int                 separatorIndex = packagePath.LastIndexOf('@');
                 string              packageName    = packagePath.Substring(startIndex+1, separatorIndex-startIndex-1);
-                string              packageVersion = packagePath.Substring(separatorIndex+1);
-                DependencyPackageVO dependency     = new DependencyPackageVO(packageName, SemanticVersionHelpers.ParseVersion(packageVersion));
-                dependencies.Add(packagePath, dependency);
+                SemanticVersionVO   packageVersion = SemanticVersionHelpers.ParseVersion(packagePath.Substring(separatorIndex+1));
+                _packageManagerModel.SetInstalledVersion(packageName, packageVersion);
+            }
+        }
+        
+        private void UpdateNotNeededPackages()
+        {
+            IEnumerator<string> packageNames = _packageManagerModel.GetPackageNameEnumerator();
+            while (packageNames.MoveNext())
+            {
+                string packageName = packageNames.Current;
+                if (_packageManagerModel.GetInstalledVersion(packageName) != null &&
+                    _packageManagerModel.GetDependencyVersion(packageName) == null)
+                {
+                    _packageManagerModel.SetDependencyState(packageName, DependencyStates.NotNeeded);
+                }
+            }
+        }
+
+        private void RemoveNotNeededPackages()
+        {
+            List<string> packagesToRemove = new List<string>();
+
+            IEnumerator<string> packageNames = _packageManagerModel.GetPackageNameEnumerator();
+            while (packageNames.MoveNext())
+            {
+                string            packageName             = packageNames.Current;
+                SemanticVersionVO packageInstalledVersion = _packageManagerModel.GetInstalledVersion(packageName);
+                if (packageInstalledVersion != null &&
+                    _packageManagerModel.GetDependencyVersion(packageName) == null)
+                {
+                    string packagePath = PackageManagerHelpers.GetPackagePath(packageName, packageInstalledVersion);
+                    UnityEngine.Debug.Log(packagePath);
+                    packagesToRemove.Add(packagePath);
+                }
             }
 
-            return dependencies;
+            for (int i = 0; i < packagesToRemove.Count; i++)
+            {
+                string packagePath = packagesToRemove[i];
+                PackageManagerHelpers.DeletePackage(packagePath);
+            }
         }
 
 
 
-
-
+/*
         public bool CheckLoadedDependencies()
         {
             if (Directory.Exists(PackageManagerConstants.PACKAGE_FOLDER)==false)
@@ -190,8 +375,8 @@ namespace Com.Bit34games.PackageManager.Utilities
 
             //  Load dependencies file
             string                                  filePath           = PackageManagerConstants.DEPENDENCIES_JSON_FOLDER + PackageManagerConstants.DEPENDENCIES_JSON_FILENAME;
-            Dictionary<string, SemanticVersionVO>   dependencies       = GetDependencyList(filePath);
-            Dictionary<string, DependencyPackageVO> loadedDependencies = GetLoadedDependencyList();
+            Dictionary<string, SemanticVersionVO>   dependencies       = LoadDependenciesJson(filePath);
+            Dictionary<string, DependencyPackageVO> loadedDependencies = GetLoadedDependencies();
 
             foreach (string dependencyName in dependencies.Keys)
             {
@@ -213,6 +398,6 @@ namespace Com.Bit34games.PackageManager.Utilities
             }
             return true;
         }
-
+*/
     }
 }

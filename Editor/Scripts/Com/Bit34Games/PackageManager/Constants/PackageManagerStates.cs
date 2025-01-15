@@ -4,6 +4,7 @@ namespace Com.Bit34games.PackageManager.Constants
     {
         NotInitialized,
         Ready,
-        Reloading,
+        Loading,
+        Error,
     }
 }
