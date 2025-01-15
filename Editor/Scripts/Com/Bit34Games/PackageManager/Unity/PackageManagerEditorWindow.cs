@@ -67,10 +67,14 @@ namespace Com.Bit34games.PackageManager.Unity
             {
                 _packageManagerModel      = new PackageManagerModel();
                 _packageManagerOperations = new PackageManagerOperations(_packageManagerModel);
+            }
 
+            _packageManagerOperations.CheckPrerequirements();
+            if (_packageManagerModel.State != PackageManagerStates.Error)
+            {
                 DetectLoadedDependencies();
             }
-            
+
             EditorApplication.update += WindowUpdate;
         }
 
@@ -91,7 +95,24 @@ namespace Com.Bit34games.PackageManager.Unity
         {
             _fullRect = new Rect(0, 0, position.width, position.height);
 
-            _packageManagerOperations.CheckPrerequirements();
+            if (_packageManagerModel.State == PackageManagerStates.NotInitialized)
+            {
+                _packageManagerOperations.CheckPrerequirements();
+
+                if (_packageManagerModel.State == PackageManagerStates.Error)
+                {
+                    DrawForError();
+                    return;
+                }
+
+                DetectLoadedDependencies();
+                if (_packageManagerModel.State == PackageManagerStates.Error)
+                {
+                    DrawForError();
+                    return;
+                }
+                _packageManagerModel.SetAsReady();
+            }
 
             if (_packageManagerModel.State == PackageManagerStates.Error)
             {
@@ -103,6 +124,7 @@ namespace Com.Bit34games.PackageManager.Unity
                 DrawForReady();
             }
             else
+            if (_packageManagerModel.State == PackageManagerStates.Loading)
             {
                 DrawForLoading();
             }
@@ -185,80 +207,142 @@ namespace Com.Bit34games.PackageManager.Unity
             method(_packageManagerModel.Error);
         }
 
-        private void DrawForErrorGitNotFound(PackageManagerErrorVO error)
+        private void DrawForErrorStart()
         {
             EditorGUILayout.BeginVertical();
                 GUILayout.BeginArea(_fullRect);
                     EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.HelpBox(PackageManagerConstants.ERROR_TEXT_GIT_NOT_FOUND, MessageType.Warning, true);
+        }
+
+        private void DrawForErrorEnd()
+        {
                     EditorGUILayout.EndHorizontal();
                 GUILayout.EndArea();
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawForErrorGitNotFound(PackageManagerErrorVO error)
+        {
+            DrawForErrorStart();
+
+            string text = "\n"+PackageManagerConstants.ERROR_TEXT_GIT_NOT_FOUND+"\n\n";
+            
+            EditorGUILayout.HelpBox(text, MessageType.Warning, true);
+
+            if (GUILayout.Button("Refresh", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
+            {
+                _packageManagerModel.ResetState();
+                Repaint();
+                GUIUtility.ExitGUI();
+                return;
+            }
+
+            DrawForErrorEnd();
         }
 
         private void DrawForErrorRepositoriesFileNotFound(PackageManagerErrorVO error)
         {
-            EditorGUILayout.BeginVertical();
-                GUILayout.BeginArea(_fullRect);
-                    EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.HelpBox(PackageManagerConstants.ERROR_TEXT_REPOSITORIES_FILE_NOT_FOUND, MessageType.Warning, true);
-                    EditorGUILayout.EndHorizontal();
-                GUILayout.EndArea();
-            EditorGUILayout.EndVertical();
+            DrawForErrorStart();
+            
+            string text = "\n"+PackageManagerConstants.ERROR_TEXT_REPOSITORIES_FILE_NOT_FOUND+"\n\n";
+
+            EditorGUILayout.HelpBox(text, MessageType.Warning, true);
+
+            if (GUILayout.Button("Refresh", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
+            {
+                _packageManagerModel.ResetState();
+                Repaint();
+                GUIUtility.ExitGUI();
+                return;
+            }
+
+            DrawForErrorEnd();
         }
         
         private void DrawForErrorRepositoriesFileBadFormat(PackageManagerErrorVO error)
         {
-            EditorGUILayout.BeginVertical();
-                GUILayout.BeginArea(_fullRect);
-                    EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.HelpBox(PackageManagerConstants.ERROR_TEXT_REPOSITORIES_FILE_BAD_FORMAT, MessageType.Warning, true);
-                    EditorGUILayout.EndHorizontal();
-                GUILayout.EndArea();
-            EditorGUILayout.EndVertical();
+            DrawForErrorStart();
+            
+            string text = "\n"+PackageManagerConstants.ERROR_TEXT_REPOSITORIES_FILE_BAD_FORMAT+"\n\n";
+
+            EditorGUILayout.HelpBox(text, MessageType.Warning, true);
+
+            if (GUILayout.Button("Refresh", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
+            {
+                _packageManagerModel.ResetState();
+                Repaint();
+                GUIUtility.ExitGUI();
+                return;
+            }
+
+            DrawForErrorEnd();
         }
 
         private void DrawForErrorDependenciesFileNotFound(PackageManagerErrorVO error)
         {
-            EditorGUILayout.BeginVertical();
-                GUILayout.BeginArea(_fullRect);
-                    EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.HelpBox(PackageManagerConstants.ERROR_TEXT_DEPENDENCIES_FILE_NOT_FOUND, MessageType.Warning, true);
-                    EditorGUILayout.EndHorizontal();
-                GUILayout.EndArea();
-            EditorGUILayout.EndVertical();
+            DrawForErrorStart();
+            
+            string text = "\n"+PackageManagerConstants.ERROR_TEXT_DEPENDENCIES_FILE_NOT_FOUND+"\n\n";
+
+            EditorGUILayout.HelpBox(text, MessageType.Warning, true);
+
+            if (GUILayout.Button("Refresh", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
+            {
+                _packageManagerModel.ResetState();
+                Repaint();
+                GUIUtility.ExitGUI();
+                return;
+            }
+
+            DrawForErrorEnd();
         }
         
         private void DrawForErrorDependenciesFileBadFormat(PackageManagerErrorVO error)
         {
-            EditorGUILayout.BeginVertical();
-                GUILayout.BeginArea(_fullRect);
-                    EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.HelpBox(PackageManagerConstants.ERROR_TEXT_DEPENDENCIES_FILE_BAD_FORMAT, MessageType.Warning, true);
-                    EditorGUILayout.EndHorizontal();
-                GUILayout.EndArea();
-            EditorGUILayout.EndVertical();
+            DrawForErrorStart();
+            
+            string text = "\n"+PackageManagerConstants.ERROR_TEXT_DEPENDENCIES_FILE_BAD_FORMAT+"\n\n";
+
+            EditorGUILayout.HelpBox(text, MessageType.Warning, true);
+
+            if (GUILayout.Button("Refresh", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
+            {
+                _packageManagerModel.ResetState();
+                Repaint();
+                GUIUtility.ExitGUI();
+                return;
+            }
+
+            DrawForErrorEnd();
         }
 
         private void DrawForErrorDependencyNotInRepository(PackageManagerErrorVO error)
         {
+            DrawForErrorStart();
+            
             PackageManagerErrorForDependencyNotInRepositoryVO castedError = (PackageManagerErrorForDependencyNotInRepositoryVO) error;
 
             string text = PackageManagerConstants.ERROR_TEXT_DEPENDENCY_NOT_IN_REPOSITORY;
             text += "\n";
             text += "\nPackage : " + castedError.packageName;
 
-            EditorGUILayout.BeginVertical();
-                GUILayout.BeginArea(_fullRect);
-                    EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.HelpBox(text, MessageType.Warning, true);
-                    EditorGUILayout.EndHorizontal();
-                GUILayout.EndArea();
-            EditorGUILayout.EndVertical();
+            EditorGUILayout.HelpBox(text, MessageType.Warning, true);
+
+            if (GUILayout.Button("Refresh", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
+            {
+                _packageManagerModel.ResetState();
+                Repaint();
+                GUIUtility.ExitGUI();
+                return;
+            }
+
+            DrawForErrorEnd();
         }
 
         private void DrawForErrorDependencyAddedWithDifferentVersion(PackageManagerErrorVO error)
         {
+            DrawForErrorStart();
+            
             PackageManagerErrorForDependencyAddedWithDifferentVersionVO castedError = (PackageManagerErrorForDependencyAddedWithDifferentVersionVO)error;
             
             string text = PackageManagerConstants.ERROR_TEXT_DEPENDENCY_ADDED_WITH_DIFFERENT_VERSION;
@@ -283,13 +367,17 @@ namespace Com.Bit34games.PackageManager.Unity
             text += "\nNew Version   : " + castedError.newVersion;
             text += "\nNew Requester : " + castedError.newRequester;
 
-            EditorGUILayout.BeginVertical();
-                GUILayout.BeginArea(_fullRect);
-                    EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.HelpBox(text, MessageType.Warning, true);
-                    EditorGUILayout.EndHorizontal();
-                GUILayout.EndArea();
-            EditorGUILayout.EndVertical();
+            EditorGUILayout.HelpBox(text, MessageType.Warning, true);
+
+            if (GUILayout.Button("Refresh", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
+            {
+                _packageManagerModel.ResetState();
+                Repaint();
+                GUIUtility.ExitGUI();
+                return;
+            }
+
+            DrawForErrorEnd();
         }
 
         private void DrawForReady()
@@ -466,10 +554,16 @@ namespace Com.Bit34games.PackageManager.Unity
         private void DetectLoadedDependencies()
         {
             _packageManagerModel.SetAsLoading();
-            Repaint();
+
+            _packageManagerOperations.CheckPrerequirements();
+            if (_packageManagerModel.State == PackageManagerStates.Error)
+            {
+                Repaint();
+                return;
+            }
 
             _packageManagerOperations.DetectClonedDependencies();
-            if (_packageManagerModel.Error != null)
+            if (_packageManagerModel.State == PackageManagerStates.Error)
             {
                 Repaint();
                 return;
@@ -486,10 +580,21 @@ namespace Com.Bit34games.PackageManager.Unity
             Scene  tempScene       = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
 
             _packageManagerModel.SetAsLoading();
-            Repaint();
+
+            _packageManagerOperations.CheckPrerequirements();
+            if (_packageManagerModel.State == PackageManagerStates.Error)
+            {
+                Repaint();
+                return;
+            }
 
             _packageManagerOperations.CloneDependencies();
 //                EditorUtility.RequestScriptReload();
+            if (_packageManagerModel.State == PackageManagerStates.Error)
+            {
+                Repaint();
+                return;
+            }
 
             if (string.IsNullOrEmpty(activeScenePath) == false)
             {

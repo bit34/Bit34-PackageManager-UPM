@@ -26,6 +26,11 @@ namespace Com.Bit34games.PackageManager.Models
         }
 
         //  METHODS
+        public void ResetState()
+        {
+            State = PackageManagerStates.NotInitialized;
+        }
+
         public void SetAsReady()
         {
             State = PackageManagerStates.Ready;
