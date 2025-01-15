@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Com.Bit34games.PackageManager.Constants;
-using Com.Bit34games.PackageManager.Utilities;
 using Com.Bit34games.PackageManager.VOs;
 
 
@@ -15,7 +14,7 @@ namespace Com.Bit34games.PackageManager.Models
         //      Private
         private List<PackageVO>               _packages;
         private Dictionary<string, PackageVO> _packagesByName;
-        private HashSet<string>                         _packagesReloadingVersion;
+        private HashSet<string>               _packagesReloadingVersion;
 
 
         //  CONSTRUCTORS
@@ -42,7 +41,6 @@ namespace Com.Bit34games.PackageManager.Models
             Error = error;
             if(Error != null)
             {
-                PackageManagerHelpers.Log("Error:" + Error.error);
                 State = PackageManagerStates.Error;
             }
         }
@@ -84,9 +82,6 @@ namespace Com.Bit34games.PackageManager.Models
         {
             return _packages[packageIndex].versions[versionIndex];
         }
-
-
-
 
         public void AddDependency(string packageName, DependencyStates state, SemanticVersionVO version, string parent) 
         {

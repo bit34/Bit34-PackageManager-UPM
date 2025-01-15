@@ -85,7 +85,7 @@ namespace Com.Bit34games.PackageManager.Utilities
                 int packageIndex = _packageManagerModel.FindPackageIndex(dependency.name);
                 if (packageIndex == -1)
                 {
-                    _packageManagerModel.SetError(new PackageManagerErrorVO(PackageManagerErrors.DependencyDoesNotHaveRepository));
+                    _packageManagerModel.SetError(new PackageManagerErrorForDependencyNotInRepositoryVO(dependency.name));
                     return false;
                 }
 
@@ -136,6 +136,12 @@ namespace Com.Bit34games.PackageManager.Utilities
                         {
                             string            subDependencyVersionText = dependencyPackageFile.dependencies[subDependencyName];
                             SemanticVersionVO subDependencyVersion     = SemanticVersionHelpers.ParseVersionFromTag(subDependencyVersionText);
+                            if (_packageManagerModel.FindPackageIndex(subDependencyName) == -1)
+                            {
+                                _packageManagerModel.SetError(new PackageManagerErrorForDependencyNotInRepositoryVO(subDependencyName));
+                                return false;
+                            }
+                            else
                             if (_packageManagerModel.GetDependencyState(subDependencyName) == DependencyStates.NotInUse)
                             {
                                 dependencies.Add(new PackageReferenceVO(subDependencyName, subDependencyVersion, dependency.name));
@@ -200,7 +206,7 @@ namespace Com.Bit34games.PackageManager.Utilities
                 int packageIndex = _packageManagerModel.FindPackageIndex(dependency.name);
                 if (packageIndex == -1)
                 {
-                    _packageManagerModel.SetError(new PackageManagerErrorVO(PackageManagerErrors.DependencyDoesNotHaveRepository));
+                    _packageManagerModel.SetError(new PackageManagerErrorForDependencyNotInRepositoryVO(dependency.name));
                     return false;
                 }
 
@@ -251,6 +257,12 @@ namespace Com.Bit34games.PackageManager.Utilities
                             {
                                 string            subDependencyVersionText = dependencyPackageFile.dependencies[subDependencyName];
                                 SemanticVersionVO subDependencyVersion     = SemanticVersionHelpers.ParseVersionFromTag(subDependencyVersionText);
+                                if (_packageManagerModel.FindPackageIndex(subDependencyName) == -1)
+                                {
+                                    _packageManagerModel.SetError(new PackageManagerErrorForDependencyNotInRepositoryVO(subDependencyName));
+                                    return false;
+                                }
+                                else
                                 if (_packageManagerModel.GetDependencyState(subDependencyName) == DependencyStates.NotInUse)
                                 {
                                     dependencies.Add(new PackageReferenceVO(subDependencyName, subDependencyVersion, dependency.name));
@@ -279,7 +291,6 @@ namespace Com.Bit34games.PackageManager.Utilities
             RemoveNotNeededPackages();
             return true;
         }
-
 
         private bool LoadRepositories()
         {
@@ -311,16 +322,19 @@ namespace Com.Bit34games.PackageManager.Utilities
                 _packageManagerModel.SetInstalledVersion(packageName, null);
             }
 
-            string[] packageFolderPaths = Directory.GetDirectories(PackageManagerConstants.PACKAGE_FOLDER);
-
-            for (int i = 0; i < packageFolderPaths.Length; i++)
+            if (Directory.Exists(PackageManagerConstants.PACKAGE_FOLDER))
             {
-                string              packagePath    = packageFolderPaths[i];
-                int                 startIndex     = Math.Max(0, packagePath.LastIndexOf(Path.DirectorySeparatorChar));
-                int                 separatorIndex = packagePath.LastIndexOf('@');
-                string              packageName    = packagePath.Substring(startIndex+1, separatorIndex-startIndex-1);
-                SemanticVersionVO   packageVersion = SemanticVersionHelpers.ParseVersion(packagePath.Substring(separatorIndex+1));
-                _packageManagerModel.SetInstalledVersion(packageName, packageVersion);
+                string[] packageFolderPaths = Directory.GetDirectories(PackageManagerConstants.PACKAGE_FOLDER);
+
+                for (int i = 0; i < packageFolderPaths.Length; i++)
+                {
+                    string              packagePath    = packageFolderPaths[i];
+                    int                 startIndex     = Math.Max(0, packagePath.LastIndexOf(Path.DirectorySeparatorChar));
+                    int                 separatorIndex = packagePath.LastIndexOf('@');
+                    string              packageName    = packagePath.Substring(startIndex+1, separatorIndex-startIndex-1);
+                    SemanticVersionVO   packageVersion = SemanticVersionHelpers.ParseVersion(packagePath.Substring(separatorIndex+1));
+                    _packageManagerModel.SetInstalledVersion(packageName, packageVersion);
+                }
             }
         }
         
@@ -363,41 +377,5 @@ namespace Com.Bit34games.PackageManager.Utilities
             }
         }
 
-
-
-/*
-        public bool CheckLoadedDependencies()
-        {
-            if (Directory.Exists(PackageManagerConstants.PACKAGE_FOLDER)==false)
-            {
-                return false;
-            }
-
-            //  Load dependencies file
-            string                                  filePath           = PackageManagerConstants.DEPENDENCIES_JSON_FOLDER + PackageManagerConstants.DEPENDENCIES_JSON_FILENAME;
-            Dictionary<string, SemanticVersionVO>   dependencies       = LoadDependenciesJson(filePath);
-            Dictionary<string, DependencyPackageVO> loadedDependencies = GetLoadedDependencies();
-
-            foreach (string dependencyName in dependencies.Keys)
-            {
-                SemanticVersionVO dependencyVersion = dependencies[dependencyName];
-                bool              dependencyFound   = false;
-                foreach (DependencyPackageVO loadedDependency in loadedDependencies.Values)
-                {
-                    if (loadedDependency.name    == dependencyName && 
-                        loadedDependency.version == dependencyVersion)
-                    {
-                        dependencyFound = true;
-                        break;
-                    }
-                }
-                if (dependencyFound == false)
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-*/
     }
 }

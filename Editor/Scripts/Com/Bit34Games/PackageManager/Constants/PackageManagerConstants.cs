@@ -18,15 +18,21 @@ namespace Com.Bit34games.PackageManager.Constants
         public static readonly string PACKAGE_JSON_FILENAME      = "package.json";
         public static readonly string VERSION_BRANCH_PREFIX      = "v";
         
-        public static readonly string ERROR_TEXT_GIT_NOT_FOUND                  = "Error : Can not found git";
+        public static readonly string ERROR_TEXT_GIT_NOT_FOUND                              = "Error : Can not found git";
 
-        public static readonly string ERROR_TEXT_REPOSITORIES_FILE_NOT_FOUND    = "Error : Can not found Assets/Bit34/repositories.json For more details checkout Bit34Games.com";
-        public static readonly string ERROR_TEXT_REPOSITORIES_FILE_BAD_FORMAT   = "Error : Assets/Bit34/repositories.json file has error(s)";
+        public static readonly string ERROR_TEXT_REPOSITORIES_FILE_NOT_FOUND                = "Error : Can not found Assets/Bit34/repositories.json For more details checkout Bit34Games.com";
+        public static readonly string ERROR_TEXT_REPOSITORIES_FILE_BAD_FORMAT               = "Error : Assets/Bit34/repositories.json file has error(s)";
 
-        public static readonly string ERROR_TEXT_DEPENDENCIES_FILE_NOT_FOUND    = "Error : Can not found Assets/Bit34/dependencies.json For more details checkout Bit34Games.com";
-        public static readonly string ERROR_TEXT_DEPENDENCIES_FILE_BAD_FORMAT   = "Error : Assets/Bit34/dependencies.json file has error(s)";
+        public static readonly string ERROR_TEXT_DEPENDENCIES_FILE_NOT_FOUND                = "Error : Can not found Assets/Bit34/dependencies.json For more details checkout Bit34Games.com";
+        public static readonly string ERROR_TEXT_DEPENDENCIES_FILE_BAD_FORMAT               = "Error : Assets/Bit34/dependencies.json file has error(s)";
 
-        public static readonly string ERROR_TEXT_DEPENDENCY_DOES_NOT_HAVE_REPOSITORY = "Error : Dependency is not defined in repository file.";
-        public static readonly string ERROR_TEXT_DEPENDENCY_ADDED_WITH_DIFFERENT_VERSION = "ERROR : Dependency already added with a difference version.";
+        public static readonly string ERROR_TEXT_DEPENDENCY_NOT_IN_REPOSITORY               = "Error : Dependency is not defined in repository file.";
+        public static readonly string ERROR_TEXT_DEPENDENCY_ADDED_WITH_DIFFERENT_VERSION    = "ERROR : Dependency already added with a difference version.";
+
+
+        public static readonly string HELP_TEXT    = "Usage: (For more details checkout Bit34Games.com)\n"+
+                                                          "- Add your packages to Assets/Bit34/repositories.json\n"+
+                                                          "- Add your dependencies to Assets/Bit34/dependencies.json\n"+
+                                                          "- Everytime you modify dependencies.json press Reload button (and wait a little).";
     }
 }

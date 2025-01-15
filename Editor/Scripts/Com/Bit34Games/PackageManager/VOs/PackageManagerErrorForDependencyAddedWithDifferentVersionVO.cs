@@ -1,5 +1,6 @@
 using Com.Bit34games.PackageManager.Constants;
 
+
 namespace Com.Bit34games.PackageManager.VOs
 {
     internal class PackageManagerErrorForDependencyAddedWithDifferentVersionVO : PackageManagerErrorVO

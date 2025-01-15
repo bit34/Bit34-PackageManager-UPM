@@ -10,7 +10,7 @@ namespace Com.Bit34games.PackageManager.Constants
         DependenciesFileNotFound,
         DependenciesFileBadFormat,
 
-        DependencyDoesNotHaveRepository,
+        DependencyNotInRepository,
         DependencyAddedWithDifferentVersion,
     }
 }

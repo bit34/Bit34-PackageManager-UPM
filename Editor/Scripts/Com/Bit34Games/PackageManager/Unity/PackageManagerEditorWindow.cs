@@ -7,7 +7,6 @@ using Com.Bit34games.PackageManager.FileVOs;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 using Com.Bit34games.PackageManager.Constants;
-using System.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 
@@ -22,10 +21,6 @@ namespace Com.Bit34games.PackageManager.Unity
         private const float  TOOLBAR_PANEL_HEIGHT   = 54;
         private const float  LIST_PANEL_WIDTH       = 220;
         private const int    PANEL_MARGIN           = 5;
-        private const string BETA_HELP_TEXT         = "Usage: (For more details checkout Bit34Games.com)\n"+
-                                                      "- Add your packages to Assets/Bit34/repositories.json\n"+
-                                                      "- Add your dependencies to Assets/Bit34/dependencies.json\n"+
-                                                      "- Everytime you modify dependencies.json press Reload button (and wait a little).";
 
 
         //  MEMBERS
@@ -53,8 +48,6 @@ namespace Com.Bit34games.PackageManager.Unity
         private GUIStyle                        _packageDetailTextStyle;
         //      Errors
         private Action<PackageManagerErrorVO>[] _errorDrawMethods;
-        private Task                            _loadingTask;
-        private bool                            _loadingTaskCompleted;
 
 
         //  METHODS
@@ -90,12 +83,6 @@ namespace Com.Bit34games.PackageManager.Unity
         {
             if (_packageManagerModel.State == PackageManagerStates.Loading)
             {
-                if (_loadingTaskCompleted == true)
-                {
-                    _loadingTask = null;
-                    _loadingTaskCompleted = false;
-                    _packageManagerModel.SetAsReady();
-                }
                 Repaint();
             }
         }
@@ -106,14 +93,11 @@ namespace Com.Bit34games.PackageManager.Unity
 
             _packageManagerOperations.CheckPrerequirements();
 
-            if (_packageManagerModel.Error != null)
+            if (_packageManagerModel.State == PackageManagerStates.Error)
             {
-                int                           methodIndex = (int)_packageManagerModel.Error.error;
-                Action<PackageManagerErrorVO> method      = _errorDrawMethods[methodIndex];
-                method(_packageManagerModel.Error);
-                return;
+                DrawForError();
             }
-
+            else
             if (_packageManagerModel.State == PackageManagerStates.Ready)
             {
                 DrawForReady();
@@ -168,16 +152,16 @@ namespace Com.Bit34games.PackageManager.Unity
 
                 _errorDrawMethods = new Action<PackageManagerErrorVO>[]
                 {
-                    DrawForGitNotFound,                         //  GitNotFound,
+                    DrawForErrorGitNotFound,                         //  GitNotFound,
 
-                    DrawForRepositoriesFileNotFound,            //  RepositoriesFileNotFound,
-                    DrawForRepositoriesFileBadFormat,           //  RepositoriesFileBadFormat,
+                    DrawForErrorRepositoriesFileNotFound,            //  RepositoriesFileNotFound,
+                    DrawForErrorRepositoriesFileBadFormat,           //  RepositoriesFileBadFormat,
 
-                    DrawForDependenciesFileNotFound,            //  DependenciesFileNotFound,
-                    DrawForDependenciesFileBadFormat,           //  DependenciesFileBadFormat,
+                    DrawForErrorDependenciesFileNotFound,            //  DependenciesFileNotFound,
+                    DrawForErrorDependenciesFileBadFormat,           //  DependenciesFileBadFormat,
 
-                    DrawForDependencyDoesNotHaveRepository,     //  DependencyDoesNotHaveRepository,
-                    DrawForDependencyAddedWithDifferentVersion, //  DependencyAddedWithDifferentVersion,
+                    DrawForErrorDependencyNotInRepository,           //  DependencyNotInRepository,
+                    DrawForErrorDependencyAddedWithDifferentVersion, //  DependencyAddedWithDifferentVersion,
                 };
             }
         }
@@ -194,7 +178,14 @@ namespace Com.Bit34games.PackageManager.Unity
             EditorGUILayout.EndVertical();
         }
 
-        private void DrawForGitNotFound(PackageManagerErrorVO error)
+        private void DrawForError()
+        {
+            int                           methodIndex = (int)_packageManagerModel.Error.error;
+            Action<PackageManagerErrorVO> method      = _errorDrawMethods[methodIndex];
+            method(_packageManagerModel.Error);
+        }
+
+        private void DrawForErrorGitNotFound(PackageManagerErrorVO error)
         {
             EditorGUILayout.BeginVertical();
                 GUILayout.BeginArea(_fullRect);
@@ -205,7 +196,7 @@ namespace Com.Bit34games.PackageManager.Unity
             EditorGUILayout.EndVertical();
         }
 
-        private void DrawForRepositoriesFileNotFound(PackageManagerErrorVO error)
+        private void DrawForErrorRepositoriesFileNotFound(PackageManagerErrorVO error)
         {
             EditorGUILayout.BeginVertical();
                 GUILayout.BeginArea(_fullRect);
@@ -216,7 +207,7 @@ namespace Com.Bit34games.PackageManager.Unity
             EditorGUILayout.EndVertical();
         }
         
-        private void DrawForRepositoriesFileBadFormat(PackageManagerErrorVO error)
+        private void DrawForErrorRepositoriesFileBadFormat(PackageManagerErrorVO error)
         {
             EditorGUILayout.BeginVertical();
                 GUILayout.BeginArea(_fullRect);
@@ -227,7 +218,7 @@ namespace Com.Bit34games.PackageManager.Unity
             EditorGUILayout.EndVertical();
         }
 
-        private void DrawForDependenciesFileNotFound(PackageManagerErrorVO error)
+        private void DrawForErrorDependenciesFileNotFound(PackageManagerErrorVO error)
         {
             EditorGUILayout.BeginVertical();
                 GUILayout.BeginArea(_fullRect);
@@ -238,7 +229,7 @@ namespace Com.Bit34games.PackageManager.Unity
             EditorGUILayout.EndVertical();
         }
         
-        private void DrawForDependenciesFileBadFormat(PackageManagerErrorVO error)
+        private void DrawForErrorDependenciesFileBadFormat(PackageManagerErrorVO error)
         {
             EditorGUILayout.BeginVertical();
                 GUILayout.BeginArea(_fullRect);
@@ -249,18 +240,24 @@ namespace Com.Bit34games.PackageManager.Unity
             EditorGUILayout.EndVertical();
         }
 
-        private void DrawForDependencyDoesNotHaveRepository(PackageManagerErrorVO error)
+        private void DrawForErrorDependencyNotInRepository(PackageManagerErrorVO error)
         {
+            PackageManagerErrorForDependencyNotInRepositoryVO castedError = (PackageManagerErrorForDependencyNotInRepositoryVO) error;
+
+            string text = PackageManagerConstants.ERROR_TEXT_DEPENDENCY_NOT_IN_REPOSITORY;
+            text += "\n";
+            text += "\nPackage : " + castedError.packageName;
+
             EditorGUILayout.BeginVertical();
                 GUILayout.BeginArea(_fullRect);
                     EditorGUILayout.BeginHorizontal();
-                        EditorGUILayout.HelpBox(PackageManagerConstants.ERROR_TEXT_DEPENDENCY_DOES_NOT_HAVE_REPOSITORY, MessageType.Warning, true);
+                        EditorGUILayout.HelpBox(text, MessageType.Warning, true);
                     EditorGUILayout.EndHorizontal();
                 GUILayout.EndArea();
             EditorGUILayout.EndVertical();
         }
 
-        private void DrawForDependencyAddedWithDifferentVersion(PackageManagerErrorVO error)
+        private void DrawForErrorDependencyAddedWithDifferentVersion(PackageManagerErrorVO error)
         {
             PackageManagerErrorForDependencyAddedWithDifferentVersionVO castedError = (PackageManagerErrorForDependencyAddedWithDifferentVersionVO)error;
             
@@ -316,7 +313,7 @@ namespace Com.Bit34games.PackageManager.Unity
             GUILayout.BeginArea(_toolBarRect);
             EditorGUILayout.BeginHorizontal();
             
-            EditorGUILayout.HelpBox(BETA_HELP_TEXT, MessageType.Warning, true);
+            EditorGUILayout.HelpBox(PackageManagerConstants.HELP_TEXT, MessageType.Warning, true);
 
             if (GUILayout.Button("Reload", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
             {
@@ -468,20 +465,18 @@ namespace Com.Bit34games.PackageManager.Unity
 
         private void DetectLoadedDependencies()
         {
-//X            Task task = Task.Run(() => 
-//X            {
-                _packageManagerModel.SetAsLoading();
+            _packageManagerModel.SetAsLoading();
+            Repaint();
 
-                _packageManagerOperations.DetectClonedDependencies();
-                if (_packageManagerModel.Error != null)
-                {
-                    Repaint();
-                    return;
-                }
-
-                _packageManagerModel.SetAsReady();
+            _packageManagerOperations.DetectClonedDependencies();
+            if (_packageManagerModel.Error != null)
+            {
                 Repaint();
-//X            });
+                return;
+            }
+
+            _packageManagerModel.SetAsReady();
+            Repaint();
         }
 
         private void ReloadDependencies()
@@ -493,21 +488,16 @@ namespace Com.Bit34games.PackageManager.Unity
             _packageManagerModel.SetAsLoading();
             Repaint();
 
-            _loadingTaskCompleted = false;
-//            _loadingTask = new Task(()=>
-//            {
-                _packageManagerOperations.CloneDependencies();
+            _packageManagerOperations.CloneDependencies();
 //                EditorUtility.RequestScriptReload();
 
-                if (string.IsNullOrEmpty(activeScenePath) == false)
-                {
-                    EditorSceneManager.OpenScene(activeScenePath);
-                }
+            if (string.IsNullOrEmpty(activeScenePath) == false)
+            {
+                EditorSceneManager.OpenScene(activeScenePath);
+            }
 
-                _loadingTaskCompleted = true;
-//            });
-
-//            _loadingTask.Start();
+            _packageManagerModel.SetAsReady();
+            Repaint();
         }
 
         private void ReloadPackageVersions(string packageName)
