@@ -364,7 +364,6 @@ namespace Com.Bit34games.PackageManager.Utilities
                     _packageManagerModel.GetDependencyVersion(packageName) == null)
                 {
                     string packagePath = PackageManagerHelpers.GetPackagePath(packageName, packageInstalledVersion);
-                    UnityEngine.Debug.Log(packagePath);
                     packagesToRemove.Add(packagePath);
                 }
             }

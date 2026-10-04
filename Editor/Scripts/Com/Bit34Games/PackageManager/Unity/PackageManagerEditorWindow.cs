@@ -503,7 +503,7 @@ namespace Com.Bit34games.PackageManager.Unity
                 {
                     EditorGUILayout.BeginHorizontal(GUILayout.Width(200));
                         GUILayout.Label("Available versions :", _packageDetailHeaderStyle);
-                        if (GUILayout.Button("Update", new GUILayoutOption[]{GUILayout.Height(16), GUILayout.Width(100)}))
+                        if (GUILayout.Button("Fetch", new GUILayoutOption[]{GUILayout.Height(16), GUILayout.Width(100)}))
                         {
                             ReloadPackageVersions(packageName);
                             Repaint();
