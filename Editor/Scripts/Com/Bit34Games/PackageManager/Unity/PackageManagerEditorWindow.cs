@@ -184,6 +184,8 @@ namespace Com.Bit34games.PackageManager.Unity
 
                     DrawForErrorDependencyNotInRepository,           //  DependencyNotInRepository,
                     DrawForErrorDependencyAddedWithDifferentVersion, //  DependencyAddedWithDifferentVersion,
+
+                    DrawForErrorGitCommandFailed,                    //  GitCommandFailed,
                 };
             }
         }
@@ -366,6 +368,33 @@ namespace Com.Bit34games.PackageManager.Unity
             text += "\n";
             text += "\nNew Version   : " + castedError.newVersion;
             text += "\nNew Requester : " + castedError.newRequester;
+
+            EditorGUILayout.HelpBox(text, MessageType.Warning, true);
+
+            if (GUILayout.Button("Refresh", GUILayout.Height(TOOLBAR_PANEL_HEIGHT)))
+            {
+                _packageManagerModel.ResetState();
+                Repaint();
+                GUIUtility.ExitGUI();
+                return;
+            }
+
+            DrawForErrorEnd();
+        }
+
+        private void DrawForErrorGitCommandFailed(PackageManagerErrorVO error)
+        {
+            DrawForErrorStart();
+
+            PackageManagerErrorForGitCommandFailedVO castedError = (PackageManagerErrorForGitCommandFailedVO)error;
+
+            string text = PackageManagerConstants.ERROR_TEXT_GIT_COMMAND_FAILED;
+            text += "\n";
+            text += "\nWhile : " + castedError.operation;
+            text += "\n";
+            //  git's own message — usually the actionable part (a missing ssh
+            //  key, an unreachable host, a tag that does not exist).
+            text += "\n" + castedError.details;
 
             EditorGUILayout.HelpBox(text, MessageType.Warning, true);
 

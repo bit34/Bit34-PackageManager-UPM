@@ -29,6 +29,8 @@ namespace Com.Bit34games.PackageManager.Constants
         public static readonly string ERROR_TEXT_DEPENDENCY_NOT_IN_REPOSITORY               = "Error : Dependency is not defined in repository file.";
         public static readonly string ERROR_TEXT_DEPENDENCY_ADDED_WITH_DIFFERENT_VERSION    = "ERROR : Dependency already added with a difference version.";
 
+        public static readonly string ERROR_TEXT_GIT_COMMAND_FAILED                        = "Error : A git command failed.";
+
 
         public static readonly string HELP_TEXT    = "Usage: (For more details checkout Bit34Games.com)\n"+
                                                           "- Add your packages to Assets/Bit34/repositories.json\n"+

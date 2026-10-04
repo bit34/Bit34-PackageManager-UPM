@@ -18,22 +18,45 @@ namespace Com.Bit34games.PackageManager.Utilities
             return PackageManagerConstants.PACKAGE_FOLDER + packageName + "@" + packageVersion;
         }
 
-        public static void ClonePackage(string packageName, string packageURL, SemanticVersionVO packageVersion)
+        /// <summary>
+        /// Clones a package and checks out its version tag. Returns false if
+        /// either git call failed, leaving the reason in GitHelpers.LastError.
+        /// </summary>
+        public static bool ClonePackage(string packageName, string packageURL, SemanticVersionVO packageVersion)
         {
             string packagePath = GetPackagePath(packageName, packageVersion);
-            GitHelpers.Clone(packagePath, packageURL);
-            GitHelpers.CheckoutBranch(packagePath, PackageManagerConstants.VERSION_BRANCH_PREFIX + packageVersion);
+            if (GitHelpers.Clone(packagePath, packageURL) == false)
+            {
+                return false;
+            }
+            if (GitHelpers.CheckoutBranch(packagePath, PackageManagerConstants.VERSION_BRANCH_PREFIX + packageVersion) == false)
+            {
+                return false;
+            }
             AssetDatabase.Refresh();
+            return true;
         }
 
-        public static void ChangePackageVersion(string packageName, SemanticVersionVO packageVersion, SemanticVersionVO newPackageVersion)
+        /// <summary>
+        /// Moves an already cloned package onto another version tag and renames
+        /// its folder to match. Returns false if either git call failed; the
+        /// folder is left on the old version in that case.
+        /// </summary>
+        public static bool ChangePackageVersion(string packageName, SemanticVersionVO packageVersion, SemanticVersionVO newPackageVersion)
         {
             string packagePath = GetPackagePath(packageName, packageVersion);
-            GitHelpers.Fetch(packagePath);
-            GitHelpers.CheckoutBranch(packagePath, PackageManagerConstants.VERSION_BRANCH_PREFIX + newPackageVersion);
+            if (GitHelpers.Fetch(packagePath) == false)
+            {
+                return false;
+            }
+            if (GitHelpers.CheckoutBranch(packagePath, PackageManagerConstants.VERSION_BRANCH_PREFIX + newPackageVersion) == false)
+            {
+                return false;
+            }
             string newPackagePath = GetPackagePath(packageName, newPackageVersion);
             StorageHelpers.RenameDirectory(packagePath, newPackagePath);
             AssetDatabase.Refresh();
+            return true;
         }
 
         public static void DeletePackage(string packagePath)

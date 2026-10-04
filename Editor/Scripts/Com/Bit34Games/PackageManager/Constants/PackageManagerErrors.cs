@@ -12,5 +12,9 @@ namespace Com.Bit34games.PackageManager.Constants
 
         DependencyNotInRepository,
         DependencyAddedWithDifferentVersion,
+
+        //  Appended, not inserted: PackageManagerEditorWindow dispatches error
+        //  drawing through an array indexed by this enum.
+        GitCommandFailed,
     }
 }
