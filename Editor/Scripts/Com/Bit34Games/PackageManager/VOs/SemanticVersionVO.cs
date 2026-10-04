@@ -28,25 +28,32 @@ namespace Com.Bit34games.PackageManager.VOs
             return ToString().GetHashCode();
         }
 
+        /// <summary>
+        /// Precedence order: major first, then minor, then patch. The previous
+        /// `||` chain compared the three independently, which made 2.0.0 look
+        /// lower than 1.5.0.
+        /// </summary>
         public bool IsLowerThan(SemanticVersionVO version)
         {
-            if (major < version.major || 
-                minor < version.minor ||
-                patch < version.patch)
-            {
-                return true;
-            }
-            return false;
+            if (major != version.major) { return major < version.major; }
+            if (minor != version.minor) { return minor < version.minor; }
+            return patch < version.patch;
         }
 
 
         public override bool Equals(object obj)
         {
-            SemanticVersionVO castedObj = (SemanticVersionVO)obj;
+            //  `as` rather than a cast: Equals(object) must answer false for an
+            //  unrelated type, not throw.
+            SemanticVersionVO castedObj = obj as SemanticVersionVO;
             if (ReferenceEquals(castedObj, null))
-            return false;
+            {
+                return false;
+            }
             if (ReferenceEquals(this, castedObj))
-            return true;
+            {
+                return true;
+            }
             return major == castedObj.major &&
                    minor == castedObj.minor &&
                    patch == castedObj.patch;
