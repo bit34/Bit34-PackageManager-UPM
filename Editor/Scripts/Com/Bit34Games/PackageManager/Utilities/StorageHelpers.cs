@@ -8,11 +8,23 @@ namespace Com.Bit34games.PackageManager.Utilities
         //  METHODS
         public static void DeleteFile(string filepath)
         {
+            //  Guarded: these run as cleanup after AssetDatabase has usually
+            //  already removed the pair, so a missing file is the normal case
+            //  rather than an error.
+            if (File.Exists(filepath) == false)
+            {
+                return;
+            }
             File.Delete(filepath);
         }
         
         public static void DeleteDirectory(string path)
         {
+            if (Directory.Exists(path) == false)
+            {
+                return;
+            }
+
             string[] files = Directory.GetFiles(path);
             string[] dirs = Directory.GetDirectories(path);
 

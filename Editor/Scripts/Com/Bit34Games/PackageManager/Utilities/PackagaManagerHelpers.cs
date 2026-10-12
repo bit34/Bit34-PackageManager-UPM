@@ -61,6 +61,21 @@ namespace Com.Bit34games.PackageManager.Utilities
 
         public static void DeletePackage(string packagePath)
         {
+            //  Through the asset database, not File/Directory. DeleteAsset
+            //  removes a folder together with its sibling .meta and keeps
+            //  Unity's own record in step. Doing it behind Unity's back left
+            //  the .meta on disk after a version bump, and Unity recreated an
+            //  empty folder from it and warned about every one: "A meta data
+            //  file (.meta) exists but its folder can't be found, and has been
+            //  created." Seven of those for seven replaced packages.
+            string assetPath = packagePath.Replace(Path.DirectorySeparatorChar, '/');
+            if (AssetDatabase.DeleteAsset(assetPath))
+            {
+                return;
+            }
+
+            //  Fallback for a path the asset database does not have, which is
+            //  what a half-removed folder from an older run looks like.
             StorageHelpers.DeleteDirectory(packagePath);
             StorageHelpers.DeleteFile(packagePath + ".meta");
         }

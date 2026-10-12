@@ -61,8 +61,13 @@ namespace Com.Bit34games.PackageManager.Unity
 
         private void OnEnable()
         {
-            InitializeDrawing();
-
+            //  Styles are NOT built here. EditorStyles is only populated while
+            //  the editor is drawing, and Unity calls OnEnable on a window it
+            //  restores from a saved layout long before that — through
+            //  LoadDefaultWindowPreferences on project load — so
+            //  EditorStyles.boldLabel was null and InitializeDrawing threw a
+            //  NullReferenceException on every open. It runs from OnGUI now,
+            //  where its own null guard still keeps it to one pass.
             if (_packageManagerModel == null)
             {
                 _packageManagerModel      = new PackageManagerModel();
@@ -93,6 +98,8 @@ namespace Com.Bit34games.PackageManager.Unity
 
         private void OnGUI()
         {
+            InitializeDrawing();
+
             _fullRect = new Rect(0, 0, position.width, position.height);
 
             if (_packageManagerModel.State == PackageManagerStates.NotInitialized)
